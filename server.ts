@@ -9,7 +9,7 @@ import { VILLAGES_BY_TALUKA } from "./src/lib/maharashtra-locations";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { BACKUP_PRODUCTS, findBackupProducts, FullProduct } from "./server-products.js";
-import { initializeApp, applicationDefault, getApps } from "firebase-admin/app";
+import { initializeApp, cert, applicationDefault, getApps } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
@@ -23,14 +23,39 @@ function getFirebaseAdmin() {
       if (apps.length > 0) {
         firebaseAdminApp = apps[0];
       } else {
+        let credential;
+        const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
+
+        if (serviceAccountEnv) {
+          try {
+            const trimmed = serviceAccountEnv.trim();
+            const jsonStr = trimmed.startsWith("{")
+              ? trimmed
+              : Buffer.from(trimmed, "base64").toString("utf-8");
+            const serviceAccount = JSON.parse(jsonStr);
+            if (serviceAccount.private_key) {
+              serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+            }
+            credential = cert(serviceAccount);
+            console.log("[Firebase Admin] Successfully initialized with service account credential from FIREBASE_SERVICE_ACCOUNT_KEY.");
+          } catch (parseErr) {
+            console.warn("[Firebase Admin] Warning: Could not parse FIREBASE_SERVICE_ACCOUNT_KEY JSON:", parseErr);
+          }
+        }
+
+        if (!credential) {
+          credential = applicationDefault();
+          console.log("[Firebase Admin] Initialized with applicationDefault credentials.");
+        }
+
         firebaseAdminApp = initializeApp({
-          credential: applicationDefault(),
+          credential,
           projectId: "vionex-d47e2"
         });
       }
     } catch (err) {
       console.warn("Firebase Admin SDK initialization warning:", err);
-      throw new Error("Firebase Admin SDK is not initialized. Make sure GOOGLE_APPLICATION_CREDENTIALS or Cloud Run identity is set.");
+      throw new Error("Firebase Admin SDK is not initialized. Make sure FIREBASE_SERVICE_ACCOUNT_KEY or GOOGLE_APPLICATION_CREDENTIALS is set.");
     }
   }
   return firebaseAdminApp;
