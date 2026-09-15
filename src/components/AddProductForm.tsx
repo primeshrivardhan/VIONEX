@@ -570,7 +570,6 @@ export default function AddProductForm({
   const [searchError, setSearchError] = useState("");
   const [submitError, setSubmitError] = useState("");
 
-  const [isMagicFilling, setIsMagicFilling] = useState(false);
 
   const [formData, setFormData] = useState({
     brandName: initialData?.brandName || "",
@@ -1055,47 +1054,6 @@ export default function AddProductForm({
     setIsSearchedOnline(false);
   };
 
-  const handleMagicFill = async () => {
-    if (!formData.brandName) {
-      alert("Please enter at least the Brand Name first.");
-      return;
-    }
-    const apiUrl = getApiUrl("/api/generate-product-info");
-    if (!apiUrl) {
-      alert("ऑनलाइन AI माहिती भरण्याची सेवा सध्या उपलब्ध नाही (Backend service not configured yet).");
-      return;
-    }
-    setIsMagicFilling(true);
-    try {
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: await getAuthHeaders(),
-        body: JSON.stringify({
-          brandName: formData.brandName,
-          companyName: formData.companyName,
-        }),
-      });
-      if (!res.ok) throw new Error("API request failed");
-      const data = await res.json();
-      if (data.product) {
-        const enriched = getEnrichedProduct({
-          ...data.product,
-          brandName: data.product.brandName || formData.brandName,
-          companyName: data.product.companyName || formData.companyName,
-        });
-        
-        setFormData(prev => ({
-          ...prev,
-          ...enriched
-        }));
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Failed to auto-fetch details from AI Database.");
-    } finally {
-      setIsMagicFilling(false);
-    }
-  };
 
   return (
     <div className="w-full h-full bg-white flex flex-col relative z-50">
@@ -1326,14 +1284,6 @@ export default function AddProductForm({
               </datalist>
             </div>
 
-            <button
-              type="button"
-              onClick={handleMagicFill}
-              disabled={isMagicFilling || !formData.brandName}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-gradient-to-r from-purple-500 justify-center to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50 transition-all"
-            >
-              {isMagicFilling ? "🤖 AI माहिती लोड करत आहे..." : "✨ AI कडून सर्व माहिती ऑटो-फील करा (Magic Fill)"}
-            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
