@@ -118,7 +118,7 @@ async function requireAdmin(req: any, res: any, next: any) {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   // Security Middlewares
   app.use(helmet({
