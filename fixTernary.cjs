@@ -1,0 +1,33 @@
+const fs = require('fs');
+let code = fs.readFileSync('src/components/ScheduleList.tsx', 'utf8');
+
+code = code.replace(
+  '              })\n            )\n\n            {listItems.length > pageSize && (\n              <div className="flex justify-center pt-2 pb-6">\n                <button\n                  onClick={() => setPageSize(prev => prev + 15)}\n                  className="px-6 py-2.5 rounded-xl border border-emerald-200 text-emerald-700 font-semibold text-sm hover:bg-emerald-50 active:bg-emerald-100 transition-colors shadow-sm"\n                >\n                  {language === \'en\' ? "Load More Schedules" : "आणखी वेळापत्रक पहा"}\n                </button>\n              </div>\n            )}\n\n             : (',
+  '              })\n            ) : ('
+);
+
+code = code.replace(
+  '            {listItems.length > 0 ? (',
+  '            {listItems.length > 0 ? (\n              <>'
+);
+
+const loadMoreBtn = `
+                {listItems.length > pageSize && (
+                  <div className="flex justify-center pt-2 pb-6">
+                    <button
+                      onClick={() => setPageSize(prev => prev + 15)}
+                      className="px-6 py-2.5 rounded-xl border border-emerald-200 text-emerald-700 font-semibold text-sm hover:bg-emerald-50 active:bg-emerald-100 transition-colors shadow-sm"
+                    >
+                      {language === 'en' ? "Load More Schedules" : "आणखी वेळापत्रक पहा"}
+                    </button>
+                  </div>
+                )}
+              </>
+`;
+
+code = code.replace(
+  '              })\n            ) : (',
+  '              })\n' + loadMoreBtn + '\n            ) : ('
+);
+
+fs.writeFileSync('src/components/ScheduleList.tsx', code);

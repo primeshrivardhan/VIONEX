@@ -1,0 +1,6 @@
+{
+  "name": "VIONEX Crop Care",
+  "description": "Smart Agriculture & Farm Management Solution",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

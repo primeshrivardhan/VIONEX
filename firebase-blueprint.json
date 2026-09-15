@@ -1,0 +1,236 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "Represents an administrative or system user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "loginId": { "type": "string" },
+        "password": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "status": { "type": "string", "enum": ["approved", "frozen"] },
+        "permissions": {
+          "type": "object",
+          "properties": {
+            "farmers": { "type": "boolean" },
+            "schedules": { "type": "boolean" },
+            "products": { "type": "boolean" },
+            "dealers": { "type": "boolean" },
+            "consultants": { "type": "boolean" },
+            "weather": { "type": "boolean" },
+            "allCrops": { "type": "boolean" },
+            "solutions": { "type": "boolean" },
+            "masterSchedules": { "type": "boolean" },
+            "autoApproveSchedules": { "type": "boolean" },
+            "manageProducts": { "type": "boolean" }
+          }
+        },
+        "paidStatus": { "type": "string", "enum": ["paid", "unpaid"] },
+        "access": { "type": "boolean" }
+      }
+    },
+    "farmer": {
+      "title": "Farmer",
+      "description": "Represents a farmer and their associated crops.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "mobile": { "type": "string" },
+        "password": { "type": "string" },
+        "pincode": { "type": "string" },
+        "country": { "type": "string" },
+        "state": { "type": "string" },
+        "district": { "type": "string" },
+        "taluka": { "type": "string" },
+        "village": { "type": "string" },
+        "crops": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "crop": { "type": "string" },
+              "variety": { "type": "string" },
+              "season": { "type": "string" },
+              "area": { "type": "string" },
+              "plantationDate": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "product": {
+      "title": "Product",
+      "description": "Represents a product such as a pesticide or fertilizer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "brandName": { "type": "string" },
+        "chemicalName": { "type": "string" },
+        "company": { "type": "string" },
+        "type": { "type": "string" },
+        "price": { "type": "number" },
+        "description": { "type": "string" }
+      }
+    },
+    "schedule": {
+      "title": "Schedule",
+      "description": "Represents a farming schedule for a farmer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "farmerId": { "type": "string" },
+        "date": { "type": "string" },
+        "sprayNumber": { "type": "number" },
+        "purpose": { "type": "string" },
+        "doses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productName": { "type": "string" },
+              "dose": { "type": "string" }
+            }
+          }
+        },
+        "notes": { "type": "string" },
+        "status": { "type": "string" },
+        "isApproved": { "type": "boolean" },
+        "approvedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "dealer": {
+      "title": "Dealer",
+      "description": "Represents a dealer / merchant who registers with the network.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "shopName": { "type": "string" },
+        "mobile": { "type": "string" },
+        "village": { "type": "string" },
+        "taluka": { "type": "string" },
+        "district": { "type": "string" },
+        "pincode": { "type": "string" }
+      }
+    },
+    "activityLog": {
+      "title": "Activity Log",
+      "description": "Represents an audit log entry for user activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string" },
+        "type": { "type": "string" },
+        "entityId": { "type": "string" },
+        "entityName": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "createdBy": { "type": "string" }
+      }
+    },
+    "apiErrorLog": {
+      "title": "API Error Log",
+      "description": "Represents a logged error during API product search operations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "query": { "type": "string" },
+        "errorType": { "type": "string" },
+        "errorRaw": { "type": "string" },
+        "errorMessage": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "attemptCount": { "type": "number" }
+      }
+    },
+    "alert": {
+      "title": "Alert",
+      "description": "Represents a security, weather, or management alert shown to all users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "masterLocation": {
+      "title": "Master Location",
+      "description": "Represents a canonical location (State, District, Taluka, Village) for master data.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "state": { "type": "string" },
+        "district": { "type": "string" },
+        "taluka": { "type": "string" },
+        "village": { "type": "string" },
+        "villageMarathi": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["state", "district", "taluka", "village"]
+    },
+    "consultant": {
+      "title": "Consultant",
+      "description": "Represents a crop consultant or expert specialist.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "alternatePhone": { "type": "string" },
+        "specialty": { "type": "string" },
+        "experience": { "type": "string" },
+        "address": { "type": "string" },
+        "workingArea": { "type": "string" },
+        "consultingArea": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "user",
+      "description": "Collection of system and administrative users."
+    },
+    "consultants": {
+      "schema": "consultant",
+      "description": "Collection of crop consultants and experts."
+    },
+    "farmers": {
+      "schema": "farmer",
+      "description": "Collection of farmers."
+    },
+    "products": {
+      "schema": "product",
+      "description": "Collection of products."
+    },
+    "schedules": {
+      "schema": "schedule",
+      "description": "Collection of farming schedules."
+    },
+    "dealers": {
+      "schema": "dealer",
+      "description": "Collection of dealers / stores in the system."
+    },
+    "activity-logs": {
+      "schema": "activityLog",
+      "description": "Collection of system activity / audit logs."
+    },
+    "api-error-logs": {
+      "schema": "apiErrorLog",
+      "description": "Collection of search API errors and fallback notifications."
+    },
+    "alerts": {
+      "schema": "alert",
+      "description": "Collection of system-wide alerts & agricultural warnings."
+    },
+    "master-locations": {
+      "schema": "masterLocation",
+      "description": "Master list of official locations (villages, talukas, districts)."
+    }
+  }
+}

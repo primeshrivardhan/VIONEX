@@ -1,0 +1,11 @@
+const db = {};
+const storage = {};
+const auth = {};
+const getFirestore = () => ({});
+const collection = () => ({});
+const getDocs = async () => ({ docs: [] });
+const query = () => ({});
+const where = () => ({});
+const doc = () => ({});
+const deleteDoc = async () => {};
+module.exports = { db, storage, auth, getFirestore, collection, getDocs, query, where, doc, deleteDoc };

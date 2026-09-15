@@ -1,0 +1,14 @@
+--- src/components/LocalErrorBoundary.tsx
++++ src/components/LocalErrorBoundary.tsx
+@@ -29,6 +29,11 @@
+             {this.state.error.message}
+           </p>
+         )}
++        {this.state.error && this.state.error.stack && (
++          <pre className="text-[10px] text-left text-rose-600 bg-rose-100/50 p-2 rounded mb-4 max-w-full overflow-auto whitespace-pre-wrap">
++            {this.state.error.stack}
++          </pre>
++        )}
+         <button 
+           onClick={() => this.setState({ hasError: false })}
+           className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
