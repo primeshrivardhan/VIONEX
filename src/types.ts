@@ -102,6 +102,8 @@ export interface Dealer {
   id?: string;
   name: string;
   shopName: string;
+  businessType?: string;
+  isBranch?: boolean;
   mobile: string;
   alternateMobile?: string;
   alternateName?: string;

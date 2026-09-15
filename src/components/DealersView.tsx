@@ -1,6 +1,6 @@
 import { safeJsonParse } from "../lib/safeJson";
 import React, { useState, useEffect } from "react";
-import { Store, Search, Trash2, Edit, Phone, MapPin, Plus, Save, X, PhoneCall, MessageSquare, Send, FileText, Loader2, CheckCircle, Eye, History, Share2, Printer } from "lucide-react";
+import { Store, Search, Trash2, Edit, Phone, MapPin, Plus, Save, X, PhoneCall, MessageSquare, Send, FileText, Loader2, CheckCircle, Eye, History, Share2, Printer, Building2, User, Users, ChevronDown } from "lucide-react";
 import { Dealer } from "../types";
 import ConfirmationModal from "./ConfirmationModal";
 import { motion, AnimatePresence } from "motion/react";
@@ -9,6 +9,131 @@ import { generateVillageCode } from "../hooks/useMasterLocations";
 import { getSmartLocation } from "../lib/geo-helper";
 import { db } from "../lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
+
+const BUSINESS_TYPES = [
+  "Proprietorship (मालकी हक्क)",
+  "Partnership (भागीदारी)",
+  "Private Limited (प्रायव्हेट लिमिटेड)",
+  "Public Limited (पब्लिक लिमिटेड)",
+  "LLP (मर्यादित दायित्व भागीदारी)",
+  "Other (इतर)"
+];
+
+const BILINGUAL_DISTRICTS: Record<string, string> = {
+  "Sangli": "सांगली (Sangli)",
+  "Satara": "सातारा (Satara)",
+  "Kolhapur": "कोल्हापूर (Kolhapur)",
+  "Pune": "पुणे (Pune)",
+  "Solapur": "सोलापूर (Solapur)",
+  "Yavatmal": "यवतमाळ (Yavatmal)",
+  "Ahmednagar": "अहमदनगर (Ahmednagar)",
+  "Akola": "अकोला (Akola)",
+  "Amravati": "अमरावती (Amravati)",
+  "Beed": "बीड (Beed)",
+  "Bhandara": "भंडारा (Bhandara)",
+  "Buldhana": "बुलढाणा (Buldhana)",
+  "Chandrapur": "चंद्रपूर (Chandrapur)",
+  "Dhule": "धुळे (Dhule)",
+  "Gadchiroli": "गडचिरोली (Gadchiroli)",
+  "Gondia": "गोंदिया (Gondia)",
+  "Hingoli": "हिंगोली (Hingoli)",
+  "Jalgaon": "जळगाव (Jalgaon)",
+  "Jalna": "जालना (Jalna)",
+  "Latur": "लातूर (Latur)",
+  "Mumbai City": "मुंबई शहर (Mumbai City)",
+  "Mumbai Suburban": "मुंबई उपनगर (Mumbai Suburban)",
+  "Nagpur": "नागपूर (Nagpur)",
+  "Nanded": "नांदेड (Nanded)",
+  "Nandurbar": "नंदुरबार (Nandurbar)",
+  "Nashik": "नाशिक (Nashik)",
+  "Osmanabad (Dharashiv)": "धाराशिव (Dharashiv)",
+  "Palghar": "पालघर (Palghar)",
+  "Parbhani": "परभणी (Parbhani)",
+  "Raigad": "रायगड (Raigad)",
+  "Ratnagiri": "रत्नागिरी (Ratnagiri)",
+  "Sindhudurg": "सिंधुदुर्ग (Sindhudurg)",
+  "Thane": "ठाणे (Thane)",
+  "Washim": "वाशीम (Washim)",
+  "Chhatrapati Sambhajinagar (Aurangabad)": "छत्रपती संभाजीनगर (Aurangabad)"
+};
+
+const BILINGUAL_TALUKAS: Record<string, string> = {
+  "Khanapur (Vita)": "खानापूर (Khanapur)",
+  "Khanapur": "खानापूर (Khanapur)",
+  "Atpadi": "आटपाडी (Atpadi)",
+  "Miraj": "मिरज (Miraj)",
+  "Tasgaon": "तासगाव (Tasgaon)",
+  "Walwa": "वाळवा (Walwa)",
+  "Shirala": "शिराळा (Shirala)",
+  "Kavathemahankal": "कवठेमहांकाळ (Kavathemahankal)",
+  "Jat": "जत (Jat)",
+  "Palus": "पलूस (Palus)",
+  "Kadegaon": "कडेगाव (Kadegaon)",
+  "Karad": "कराड (Karad)",
+  "Satara": "सातारा (Satara)",
+  "Patan": "पाटण (Patan)",
+  "Phaltan": "फलटण (Phaltan)",
+  "Khatav": "खटाव (Khatav)",
+  "Man": "माण (Man)",
+  "Koregaon": "कोरेगाव (Koregaon)",
+  "Wai": "वाई (Wai)",
+  "Mahabaleshwar": "महाबळेश्वर (Mahabaleshwar)",
+  "Jawali": "जावळी (Jawali)",
+  "Khandala": "खंडाळा (Khandala)",
+  "Karvir": "करवीर (Karvir)",
+  "Hatkanangle": "हातकणंगले (Hatkanangle)",
+  "Shirol": "शिरोळ (Shirol)",
+  "Kagal": "कागल (Kagal)",
+  "Radhanagari": "राधानगरी (Radhanagari)",
+  "Panhala": "पन्हाळा (Panhala)",
+  "Shahuwadi": "शाहूवाडी (Shahuwadi)",
+  "Bhudargad": "भुदरगड (Bhudargad)",
+  "Ajara": "आजरा (Ajara)",
+  "Gadhinglaj": "गडहिंग्लज (Gadhinglaj)",
+  "Chandgad": "चंदगड (Chandgad)",
+  "Gaganbawada": "गगनबावडा (Gaganbawada)",
+  "Haveli": "हवेली (Haveli)",
+  "Pune City": "पुणे शहर (Pune City)",
+  "Baramati": "बारामती (Baramati)",
+  "Indapur": "इंदापूर (Indapur)",
+  "Daund": "दौंड (Daund)",
+  "Shirur": "शिरूर (Shirur)",
+  "Khed": "खेड (Khed)",
+  "Junnar": "जुन्नर (Junnar)",
+  "Ambegaon": "आंबेगाव (Ambegaon)",
+  "Maval": "मावळ (Maval)",
+  "Mulshi": "मुळशी (Mulshi)",
+  "Purandhar": "पुरंदर (Purandhar)",
+  "Bhor": "भोर (Bhor)",
+  "Velhe": "वेल्हे (Velhe)",
+  "Pandharpur": "पंढरपूर (Pandharpur)",
+  "Sangola": "सांगोला (Sangola)",
+  "Malshiras": "माळशिरस (Malshiras)",
+  "Barshi": "बार्शी (Barshi)",
+  "Mohol": "मोहोळ (Mohol)",
+  "Madha": "माढा (Madha)",
+  "Karmala": "करमाळा (Karmala)",
+  "Mangalwedha": "मंगळवेढा (Mangalwedha)",
+  "Akkalkot": "अक्कलकोट (Akkalkot)",
+  "Solapur North": "उत्तर सोलापूर (North Solapur)",
+  "Solapur South": "दक्षिण सोलापूर (South Solapur)",
+  "Yavatmal": "यवतमाळ (Yavatmal)",
+  "Pusad": "पुसद (Pusad)",
+  "Umarkhed": "उमरखेड (Umarkhed)",
+  "Digras": "दिग्रस (Digras)",
+  "Darwha": "दारव्हा (Darwha)",
+  "Arni": "आर्णी (Arni)",
+  "Ner": "नेर (Ner)",
+  "Kalamb": "कळंब (Kalamb)",
+  "Babulgaon": "बाभूळगाव (Babulgaon)",
+  "Ghatanji": "घाटंजी (Ghatanji)",
+  "Ralegaon": "राळेगाव (Ralegaon)",
+  "Maregaon": "मारेगाव (Maregaon)",
+  "Wani": "वणी (Wani)",
+  "Mahagaon": "महागाव (Mahagaon)",
+  "Kelapur (Pandharkawada)": "केळापूर (Kelapur)",
+  "Zari Jamni": "झरी जामणी (Zari Jamni)"
+};
 
 
 interface DealersViewProps {
@@ -57,12 +182,14 @@ export default function DealersView({
   const [formData, setFormData] = useState<Omit<Dealer, "id">>({
     name: "",
     shopName: "",
+    businessType: "Proprietorship (मालकी हक्क)",
+    isBranch: false,
     mobile: "",
     alternateMobile: "",
     alternateName: "",
     village: "",
-    taluka: "",
-    district: "Yavatmal",
+    taluka: "Khanapur (Vita)",
+    district: "Sangli",
     state: "Maharashtra",
     pincode: "",
   });
@@ -257,12 +384,14 @@ export default function DealersView({
     setFormData({
       name: "",
       shopName: "",
+      businessType: "Proprietorship (मालकी हक्क)",
+      isBranch: false,
       mobile: "",
       alternateMobile: "",
       alternateName: "",
       village: "",
-      taluka: "",
-      district: "Yavatmal",
+      taluka: "Khanapur (Vita)",
+      district: "Sangli",
       state: "Maharashtra",
       pincode: "",
       lat: undefined,
@@ -270,6 +399,7 @@ export default function DealersView({
       address: undefined,
     });
     setFormErrors({});
+    setIsManualVillage(false);
     setIsFormOpen(true);
   };
 
@@ -278,6 +408,8 @@ export default function DealersView({
     setFormData({
       name: dealer.name,
       shopName: dealer.shopName,
+      businessType: dealer.businessType || "Proprietorship (मालकी हक्क)",
+      isBranch: Boolean(dealer.isBranch),
       mobile: dealer.mobile,
       alternateMobile: dealer.alternateMobile || "",
       alternateName: dealer.alternateName || "",
@@ -291,6 +423,7 @@ export default function DealersView({
       address: dealer.address,
     });
     setFormErrors({});
+    setIsManualVillage(false);
     setIsFormOpen(true);
   };
 
@@ -610,317 +743,334 @@ export default function DealersView({
 
       <AnimatePresence>
         {isFormOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 backdrop-blur-xs">
+          <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-3 sm:p-4 z-50 backdrop-blur-xs">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 flex flex-col max-h-[94vh]"
             >
-              <div className="bg-indigo-700 text-white px-4 py-3 flex justify-between items-center">
-                <h3 className="font-black text-sm flex items-center gap-1.5">
-                  <Store className="w-4 h-4" />
-                  {editingDealer ? "Edit Dealer" : "Add Dealer"}
-                </h3>
+              {/* Header */}
+              <div className="bg-[#4c35de] text-white px-5 py-3.5 flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-2">
+                  <Store className="w-5 h-5 text-white" />
+                  <h3 className="font-bold text-base text-white">
+                    {editingDealer ? "Edit Dealer" : "Add Dealer"}
+                  </h3>
+                </div>
                 <button
+                  type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="p-1 hover:bg-white/10 rounded-lg transition text-white"
+                  className="p-1 hover:bg-white/10 rounded-lg transition text-white/90 hover:text-white"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-4 space-y-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Shop Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.shopName}
-                    onChange={(e) => setFormData({ ...formData, shopName: e.target.value })}
-                    className={`w-full px-2 py-1.5 rounded border text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none ${
-                      formErrors.shopName ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-slate-50"
-                    }`}
-                    placeholder="e.g. Gurudev Krishi Kendra"
-                  />
-                  {formErrors.shopName && (
-                    <span className="text-[10px] text-red-500 font-bold mt-0.5 block">{formErrors.shopName}</span>
-                  )}
-                </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Dealer Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className={`w-full px-2 py-1.5 rounded border text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none ${
-                      formErrors.name ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-slate-50"
-                    }`}
-                    placeholder="e.g. Rajesh Deshmukh"
-                  />
-                  {formErrors.name && (
-                    <span className="text-[10px] text-red-500 font-bold mt-0.5 block">{formErrors.name}</span>
-                  )}
-                </div>
+              {/* Form Body */}
+              <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
+                {/* SECTION 1: BASIC INFO */}
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#4c35de]">
+                    BASIC INFO
+                  </h4>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Mobile Number *
-                  </label>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    value={formData.mobile}
-                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, "") })}
-                    className={`w-full px-2 py-1.5 rounded border text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-mono leading-none ${
-                      formErrors.mobile ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-slate-50"
-                    }`}
-                    placeholder="e.g. 9876543210"
-                  />
-                  {formErrors.mobile && (
-                    <span className="text-[10px] text-red-500 font-bold mt-0.5 block">{formErrors.mobile}</span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Alternate Number (Optional)
-                    </label>
-                    <input
-                      type="tel"
-                      maxLength={10}
-                      value={formData.alternateMobile || ""}
-                      onChange={(e) => setFormData({ ...formData, alternateMobile: e.target.value.replace(/\D/g, "") })}
-                      className="w-full px-2 py-1.5 rounded border border-slate-200 bg-slate-50 text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-mono leading-none"
-                      placeholder="e.g. 9876543210"
-                    />
+                  {/* Business Type */}
+                  <div className="relative flex items-center">
+                    <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                    <select
+                      value={formData.businessType || BUSINESS_TYPES[0]}
+                      onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
+                      className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm font-medium focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none appearance-none cursor-pointer"
+                    >
+                      {BUSINESS_TYPES.map((bt) => (
+                        <option key={bt} value={bt}>
+                          {bt}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 pointer-events-none" />
                   </div>
+
+                  {/* Shop / Firm Name */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Alternate Contact Name (Optional)
-                    </label>
+                    <div className="relative flex items-center">
+                      <Store className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={formData.shopName}
+                        onChange={(e) => setFormData({ ...formData, shopName: e.target.value })}
+                        placeholder="Shop / Firm Name *"
+                        className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none ${
+                          formErrors.shopName ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-white"
+                        }`}
+                      />
+                    </div>
+                    {formErrors.shopName && (
+                      <span className="text-[11px] text-red-500 font-bold mt-1 block ml-1">{formErrors.shopName}</span>
+                    )}
+                  </div>
+
+                  {/* Dealer / Contact Person Name */}
+                  <div>
+                    <div className="relative flex items-center">
+                      <User className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Dealer / Contact Person Name *"
+                        className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none ${
+                          formErrors.name ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-white"
+                        }`}
+                      />
+                    </div>
+                    {formErrors.name && (
+                      <span className="text-[11px] text-red-500 font-bold mt-1 block ml-1">{formErrors.name}</span>
+                    )}
+                  </div>
+
+                  {/* Mobile & Alt Mobile */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="relative flex items-center">
+                        <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                        <input
+                          type="tel"
+                          maxLength={10}
+                          value={formData.mobile}
+                          onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, "") })}
+                          placeholder="Mobile Number *"
+                          className={`w-full pl-10 pr-2 py-2.5 rounded-xl border text-sm font-mono text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none ${
+                            formErrors.mobile ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-white"
+                          }`}
+                        />
+                      </div>
+                      {formErrors.mobile && (
+                        <span className="text-[10px] text-red-500 font-bold mt-1 block ml-1">{formErrors.mobile}</span>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="relative flex items-center">
+                        <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                        <input
+                          type="tel"
+                          maxLength={10}
+                          value={formData.alternateMobile || ""}
+                          onChange={(e) => setFormData({ ...formData, alternateMobile: e.target.value.replace(/\D/g, "") })}
+                          placeholder="Alt Mobile"
+                          className="w-full pl-10 pr-2 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-mono text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Alternate Contact Name */}
+                  <div className="relative flex items-center">
+                    <Users className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
                     <input
                       type="text"
                       value={formData.alternateName || ""}
                       onChange={(e) => setFormData({ ...formData, alternateName: e.target.value })}
-                      className="w-full px-2 py-1.5 rounded border border-slate-200 bg-slate-50 text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none"
-                      placeholder="e.g. Father, Brother, Owner"
+                      placeholder="Alternate Contact Name"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Village *
+                {/* SECTION 2: LOCATION TYPE */}
+                <div className="space-y-2 pt-1">
+                  <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#4c35de]">
+                    LOCATION TYPE
+                  </h4>
+                  <div className="rounded-xl border border-slate-200 bg-white py-2.5 px-4 flex items-center justify-center">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none text-sm font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formData.isBranch)}
+                        onChange={(e) => setFormData({ ...formData, isBranch: e.target.checked })}
+                        className="w-4 h-4 rounded border-slate-300 text-[#4c35de] focus:ring-[#4c35de] cursor-pointer"
+                      />
+                      <span>Branch (शाखा)</span>
                     </label>
-                    {formData.state === "Maharashtra" && formData.taluka && getVillagesForTaluka(formData.taluka).length > 0 && !isManualVillage ? (
-                      <select
-                        value={formData.village}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "__manual__") {
-                            setIsManualVillage(true);
-                            setFormData({ ...formData, village: "" });
-                          } else {
-                            setFormData({ ...formData, village: val });
-                          }
-                        }}
-                        className={`w-full px-2 py-1.5 rounded border text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none ${
-                          formErrors.village ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-slate-50"
-                        }`}
-                      >
-                        <option value="">Select Village</option>
-                        {getVillagesForTaluka(formData.taluka).map((v, i) => (
-                          <option key={i} value={v}>
-                            {v}
-                          </option>
-                        ))}
-                        <option value="__manual__">➕ Other Village (Manual)</option>
-                      </select>
-                    ) : (
-                      <div className="relative flex items-center">
-                        <input
-                          type="text"
-                          value={formData.village}
-                          onChange={(e) => setFormData({ ...formData, village: e.target.value })}
-                          className={`w-full px-2 py-1.5 rounded border text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none ${
-                            formErrors.village ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-slate-50"
-                          } ${formData.state === "Maharashtra" && formData.taluka && getVillagesForTaluka(formData.taluka).length > 0 ? "pr-8" : ""}`}
-                          placeholder="e.g. Warud"
-                        />
-                        {formData.state === "Maharashtra" && formData.taluka && getVillagesForTaluka(formData.taluka).length > 0 && (
+                  </div>
+                </div>
+
+                {/* SECTION 3: LOCATION DETAILS */}
+                <div className="space-y-3 pt-1">
+                  <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#4c35de]">
+                    LOCATION DETAILS
+                  </h4>
+
+                  {/* Row 1: Village * (Left) + Taluka (Right) */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Village */}
+                    <div>
+                      {!isManualVillage ? (
+                        <div className="relative flex items-center">
+                          <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                          <select
+                            value={formData.village}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "__manual__") {
+                                setIsManualVillage(true);
+                                setFormData({ ...formData, village: "" });
+                              } else {
+                                setFormData({ ...formData, village: val });
+                              }
+                            }}
+                            className={`w-full pl-10 pr-8 py-2.5 rounded-xl border text-sm text-slate-800 bg-white focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none appearance-none cursor-pointer font-medium ${
+                              formErrors.village ? "border-red-400 bg-red-50/20" : "border-slate-200"
+                            }`}
+                          >
+                            <option value="">Village *</option>
+                            {getVillagesForTaluka(formData.taluka).map((v, i) => (
+                              <option key={i} value={v}>
+                                {v}
+                              </option>
+                            ))}
+                            <option value="__manual__">➕ Other Village (इतर गाव)</option>
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none" />
+                        </div>
+                      ) : (
+                        <div className="relative flex items-center">
+                          <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={formData.village}
+                            onChange={(e) => setFormData({ ...formData, village: e.target.value })}
+                            placeholder="Village *"
+                            className={`w-full pl-10 pr-14 py-2.5 rounded-xl border text-sm text-slate-800 bg-white focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none ${
+                              formErrors.village ? "border-red-400 bg-red-50/20" : "border-slate-200"
+                            }`}
+                          />
                           <button
                             type="button"
                             onClick={() => setIsManualVillage(false)}
-                            className="absolute right-1 text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-1.5 py-0.5 rounded font-bold transition"
+                            className="absolute right-2 text-[10px] bg-slate-100 hover:bg-slate-200 text-[#4c35de] px-2 py-1 rounded-md font-bold transition border border-slate-200"
                           >
                             List
                           </button>
-                        )}
+                        </div>
+                      )}
+                      {formErrors.village && (
+                        <span className="text-[10px] text-red-500 font-bold mt-1 block ml-1">{formErrors.village}</span>
+                      )}
+                    </div>
+
+                    {/* Taluka */}
+                    <div>
+                      <div className="relative flex items-center">
+                        <select
+                          value={formData.taluka}
+                          onChange={(e) => {
+                            setFormData({ ...formData, taluka: e.target.value, village: "" });
+                            setIsManualVillage(false);
+                          }}
+                          className={`w-full px-3.5 pr-8 py-2.5 rounded-xl border text-sm text-slate-800 bg-white focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none appearance-none cursor-pointer font-medium ${
+                            formErrors.taluka ? "border-red-400 bg-red-50/20" : "border-slate-200"
+                          }`}
+                        >
+                          <option value="">Select Taluka</option>
+                          {getTalukasForDistrict(formData.district).map((tal) => (
+                            <option key={tal} value={tal}>
+                              {BILINGUAL_TALUKAS[tal] || tal}
+                            </option>
+                          ))}
+                          {formData.taluka && !getTalukasForDistrict(formData.district).includes(formData.taluka) && (
+                            <option value={formData.taluka}>{BILINGUAL_TALUKAS[formData.taluka] || formData.taluka}</option>
+                          )}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none" />
                       </div>
-                    )}
-                    {formErrors.village && (
-                      <span className="text-[10px] text-red-500 font-bold mt-0.5 block">{formErrors.village}</span>
-                    )}
+                      {formErrors.taluka && (
+                        <span className="text-[10px] text-red-500 font-bold mt-1 block ml-1">{formErrors.taluka}</span>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Taluka *
-                    </label>
-                    {formData.state === "Maharashtra" ? (
-                      <select
-                        value={formData.taluka}
-                        onChange={(e) => {
-                          setFormData({ ...formData, taluka: e.target.value, village: "" });
-                          setIsManualVillage(false);
-                        }}
-                        className={`w-full px-2 py-1.5 rounded border text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none ${
-                          formErrors.taluka ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-slate-50"
-                        }`}
-                        disabled={!formData.district}
-                      >
-                        <option value="">Select Taluka</option>
-                        {getTalukasForDistrict(formData.district).map((tal) => (
-                          <option key={tal} value={tal}>
-                            {tal}
-                          </option>
-                        ))}
-                        {formData.taluka && !getTalukasForDistrict(formData.district).includes(formData.taluka) && (
-                          <option value={formData.taluka}>{formData.taluka}</option>
-                        )}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={formData.taluka}
-                        onChange={(e) => setFormData({ ...formData, taluka: e.target.value })}
-                        className={`w-full px-2 py-1.5 rounded border text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none ${
-                          formErrors.taluka ? "border-red-400 bg-red-50/20" : "border-slate-200 bg-slate-50"
-                        }`}
-                        placeholder="e.g. Wani"
-                      />
-                    )}
-                    {formErrors.taluka && (
-                      <span className="text-[10px] text-red-500 font-bold mt-0.5 block">{formErrors.taluka}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      State
-                    </label>
-                    <select
-                      value={formData.state || ""}
-                      onChange={(e) => {
-                        const s = e.target.value;
-                        setFormData({ 
-                          ...formData, 
-                          state: s, 
-                          district: s === "Maharashtra" ? "Yavatmal" : "", 
-                          taluka: "", 
-                          village: "" 
-                        });
-                        setIsManualVillage(false);
-                      }}
-                      className="w-full px-2 py-1.5 rounded border border-slate-200 bg-slate-50 text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none font-medium"
-                    >
-                      <option value="">Select State</option>
-                      <option value="Maharashtra">Maharashtra</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      District
-                    </label>
-                    {formData.state === "Maharashtra" ? (
+                  {/* Row 2: District (Left) + Pincode (Right) */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* District */}
+                    <div className="relative flex items-center">
                       <select
                         value={formData.district}
                         onChange={(e) => {
-                          setFormData({ ...formData, district: e.target.value, taluka: "", village: "" });
+                          const newDistrict = e.target.value;
+                          const talukas = getTalukasForDistrict(newDistrict);
+                          setFormData({ 
+                            ...formData, 
+                            district: newDistrict, 
+                            taluka: talukas[0] || "", 
+                            village: "" 
+                          });
                           setIsManualVillage(false);
                         }}
-                        className="w-full px-2 py-1.5 rounded border border-slate-200 bg-slate-50 text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none font-medium"
+                        className="w-full px-3.5 pr-8 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none appearance-none cursor-pointer font-medium"
                       >
-                        <option value="">Select District</option>
                         {MAHARASHTRA_DISTRICTS.map((dist) => (
                           <option key={dist} value={dist}>
-                            {dist}
+                            {BILINGUAL_DISTRICTS[dist] || dist}
                           </option>
                         ))}
-                        {formData.district && !MAHARASHTRA_DISTRICTS.includes(formData.district) && (
-                          <option value={formData.district}>{formData.district}</option>
-                        )}
                       </select>
-                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none" />
+                    </div>
+
+                    {/* Pincode */}
+                    <div className="relative flex items-center">
+                      <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
                       <input
                         type="text"
-                        value={formData.district}
-                        onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                        className="w-full px-2 py-1.5 rounded border border-slate-200 bg-slate-50 text-xs focus:ring-1 focus:ring-indigo-500 outline-none leading-none"
-                        placeholder="e.g. Yavatmal"
+                        maxLength={6}
+                        value={formData.pincode || ""}
+                        onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, "") })}
+                        placeholder="Pincode"
+                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-mono text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-[#4c35de]/20 focus:border-[#4c35de] outline-none"
                       />
+                    </div>
+                  </div>
+
+                  {/* Current GPS Location Button */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={autoDetectDealerLocation}
+                      disabled={isDetectingLocation}
+                      className="w-full flex items-center justify-center gap-2 text-xs font-bold text-[#4c35de] bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-100 rounded-xl py-2.5 transition disabled:opacity-50 cursor-pointer"
+                    >
+                      <MapPin className="w-4 h-4 text-[#4c35de]" />
+                      {isDetectingLocation ? "Detecting Location..." : "Current GPS Location"}
+                    </button>
+                    {formData.lat && formData.lon && (
+                      <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 font-bold text-center">
+                        <p className="mb-0.5">📍 Current GPS Location</p>
+                        {formData.address && <p className="mb-0.5 text-emerald-900 font-medium">{formData.address}</p>}
+                        <p className="font-mono text-emerald-700">
+                          Lat: {formData.lat.toFixed(6)}, Lon: {formData.lon.toFixed(6)}
+                        </p>
+                      </div>
                     )}
                   </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Pincode
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={formData.pincode}
-                      onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, "") })}
-                      className="w-full px-2 py-1.5 rounded border border-slate-200 bg-slate-50 text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-mono leading-none"
-                      placeholder="445004"
-                    />
-                  </div>
                 </div>
 
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    onClick={autoDetectDealerLocation}
-                    disabled={isDetectingLocation}
-                    className="flex w-full items-center justify-center gap-2 text-xs bg-indigo-50 text-indigo-700 px-3 py-2 rounded font-bold hover:bg-indigo-100 transition disabled:opacity-50 border border-indigo-200"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    {isDetectingLocation ? "Detecting Location..." : "Current GPS Location"}
-                  </button>
-                  {formData.lat && formData.lon && (
-                    <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-800 font-bold text-center">
-                      <p className="mb-1">📍 Current GPS Location</p>
-                      {formData.address && <p className="mb-1 text-emerald-900">{formData.address}</p>}
-                      <p className="font-mono text-emerald-700">
-                        Lat: {formData.lat.toFixed(6)}, Lon: {formData.lon.toFixed(6)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+                {/* Footer Buttons */}
+                <div className="grid grid-cols-2 gap-3 pt-3">
                   <button
                     type="button"
                     onClick={() => setIsFormOpen(false)}
-                    className="px-4 py-1.5 rounded text-xs text-slate-600 font-bold hover:bg-slate-50 border border-slate-200"
+                    className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition text-center cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded text-xs bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md shadow-indigo-600/10"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold text-white bg-[#4c35de] hover:bg-[#3f2fb8] shadow-md shadow-[#4c35de]/20 transition text-center cursor-pointer"
                   >
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-4 h-4" />
                     Save
                   </button>
                 </div>
