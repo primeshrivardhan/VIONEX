@@ -20,6 +20,12 @@ coverage/
 serviceAccountKey*.json
 *serviceAccount*.json
 
+# Android Keystore and Signing Secrets
+*.jks
+*.keystore
+keystore.properties
+*.properties.local
+
 # Logs
 *.log
 npm-debug.log*
