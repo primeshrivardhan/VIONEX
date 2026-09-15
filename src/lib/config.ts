@@ -25,10 +25,10 @@ export const NEW_ADMIN_DISPLAY_NAME: string =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADMIN_DISPLAY_NAME) || "";
 
 // Company & Report Branding
-export const COMPANY_NAME: string = "";
-export const COMPANY_INITIALS: string = "";
-export const COMPANY_ADDRESS: string = "";
-export const COMPANY_PHONE: string = "";
+export const COMPANY_NAME: string = "VIONEX";
+export const COMPANY_INITIALS: string = "VIO";
+export const COMPANY_ADDRESS: string = "Sangli";
+export const COMPANY_PHONE: string = "7249760992";
 
 /**
  * Resolves full API URL with safe guard.
