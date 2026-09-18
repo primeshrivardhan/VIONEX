@@ -7,10 +7,9 @@ import { auth, ensureAnonymousAuth, isAuthActionPending } from "./firebase";
  * to local/offline modes and NEVER contacts any legacy service.
  */
 
-// Backend API Base URL (e.g., https://your-backend.run.app)
-// Leave empty if backend is not yet hosted.
+// Backend API Base URL (Default: Live Render backend https://vionex-4woy.onrender.com)
 export const BACKEND_URL: string = 
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) || "";
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) || "https://vionex-4woy.onrender.com";
 
 // Web Hosting Domain (e.g., https://your-app.web.app)
 // Leave empty if custom hosting is not yet finalized.
