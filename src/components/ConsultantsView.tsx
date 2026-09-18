@@ -228,8 +228,8 @@ export default function ConsultantsView() {
         }
       }
 
-      const savedDoc = await saveItem("consultants", payload, editingId || undefined);
-      const consultantDocId = savedDoc?.id || editingId || "";
+      const savedDocId = await saveItem("consultants", payload, editingId || undefined);
+      const consultantDocId = savedDocId || editingId || "";
 
       // 3. If new user was created, save user profile in /users and mapping in /user_mappings
       if (!editingId && authUid) {

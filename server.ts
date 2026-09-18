@@ -24,6 +24,7 @@ function getFirebaseAdmin() {
         firebaseAdminApp = apps[0];
       } else {
         let credential;
+        let parsedServiceAccount: any = null;
         const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
 
         if (serviceAccountEnv) {
@@ -32,11 +33,11 @@ function getFirebaseAdmin() {
             const jsonStr = trimmed.startsWith("{")
               ? trimmed
               : Buffer.from(trimmed, "base64").toString("utf-8");
-            const serviceAccount = JSON.parse(jsonStr);
-            if (serviceAccount.private_key) {
-              serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+            parsedServiceAccount = JSON.parse(jsonStr);
+            if (parsedServiceAccount.private_key) {
+              parsedServiceAccount.private_key = parsedServiceAccount.private_key.replace(/\\n/g, "\n");
             }
-            credential = cert(serviceAccount);
+            credential = cert(parsedServiceAccount);
             console.log("[Firebase Admin] Successfully initialized with service account credential from FIREBASE_SERVICE_ACCOUNT_KEY.");
           } catch (parseErr) {
             console.warn("[Firebase Admin] Warning: Could not parse FIREBASE_SERVICE_ACCOUNT_KEY JSON:", parseErr);
@@ -50,7 +51,7 @@ function getFirebaseAdmin() {
 
         firebaseAdminApp = initializeApp({
           credential,
-          projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount?.project_id || "vionex-d7055"
+          projectId: process.env.FIREBASE_PROJECT_ID || parsedServiceAccount?.project_id || "vionex-d7055"
         });
       }
     } catch (err) {
