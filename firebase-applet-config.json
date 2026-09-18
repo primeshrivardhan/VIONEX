@@ -1,10 +1,10 @@
 {
-  "projectId": "vionex-d47e2",
-  "appId": "1:501492785167:web:0cb4f5b1bb01ebed86037a",
-  "apiKey": "AIzaSyAeeIhfd49DASQW6gmuZCa92QbutuPJyKM",
-  "authDomain": "vionex-d47e2.firebaseapp.com",
+  "projectId": "vionex-d7055",
+  "appId": "1:678914457609:web:726c9045eaa5cc1daeb8d8",
+  "apiKey": "AIzaSyB98XAJEhzScUJcry3HCoXLE5G0TzQJ_dU",
+  "authDomain": "vionex-d7055.firebaseapp.com",
   "firestoreDatabaseId": "(default)",
-  "storageBucket": "vionex-d47e2.firebasestorage.app",
-  "messagingSenderId": "501492785167",
-  "measurementId": "G-9BPBP17W3H"
+  "storageBucket": "vionex-d7055.firebasestorage.app",
+  "messagingSenderId": "678914457609",
+  "measurementId": "G-WPHLQFRRB8"
 }

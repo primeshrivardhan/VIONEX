@@ -4,6 +4,7 @@ import ConfirmationModal from "./ConfirmationModal";
 import { motion } from "motion/react";
 
 interface Farmer {
+  id?: string;
   name: string;
   mobile: string;
   district: string;
@@ -12,6 +13,8 @@ interface Farmer {
   dealer?: string;
   crop?: string;
   crops?: any[];
+  createdBy?: string;
+  createdByUserId?: string;
 }
 
 interface Props {
@@ -21,6 +24,8 @@ interface Props {
   onDeleteFarmer: (index: number) => void;
   canManage?: boolean;
   permissions?: any;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }
 
 export default function FarmerList({
@@ -30,6 +35,8 @@ export default function FarmerList({
   onDeleteFarmer,
   canManage = true,
   permissions,
+  currentUserId,
+  isAdmin = false,
 }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [farmerToDelete, setFarmerToDelete] = useState<number | null>(null);
@@ -99,14 +106,14 @@ export default function FarmerList({
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
         <input
           type="text"
-          placeholder="नाव किंवा ठिकाण शोधा..."
-          className="w-full pl-8 pr-3 py-1.5 rounded border border-slate-200 bg-white focus:ring-1 focus:ring-emerald-500 outline-none text-xs"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="नाव, गाव, तालुका किंवा जिल्ह्यानुसार शोधा..."
+          className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
         {pagedFarmers.map((farmer, index) => (
           <motion.div
             key={farmer.originalIndex}
@@ -115,26 +122,31 @@ export default function FarmerList({
             transition={{ delay: index * 0.02 }}
             className="bg-white p-2.5 rounded-lg shadow-sm border border-slate-200 relative group hover:border-emerald-200 transition-colors"
           >
-            {canManage && (
-              <div className="absolute top-2 right-2 flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
-                {permissions?.farmerEdit !== false && (
-                  <button
-                    onClick={() => onEditFarmer(farmer.originalIndex)}
-                    className="p-1 text-slate-400 hover:text-blue-600 bg-white rounded shadow-sm border border-slate-100"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                {permissions?.farmerDelete !== false && (
-                  <button
-                    onClick={() => setFarmerToDelete(farmer.originalIndex)}
-                    className="p-1 text-slate-400 hover:text-red-600 bg-white rounded shadow-sm border border-slate-100"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            )}
+            {canManage && (() => {
+              const isOwner = Boolean(currentUserId && ((farmer.createdBy && farmer.createdBy === currentUserId) || (farmer.createdByUserId && farmer.createdByUserId === currentUserId)));
+              return (
+                <div className="absolute top-2 right-2 flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                  {(isAdmin || (permissions?.farmerEdit !== false && isOwner)) && (
+                    <button
+                      onClick={() => onEditFarmer(farmer.originalIndex)}
+                      className="p-1 text-slate-400 hover:text-blue-600 bg-white rounded shadow-sm border border-slate-100"
+                      title="Edit Farmer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {(isAdmin || (permissions?.farmerDelete !== false && isOwner)) && (
+                    <button
+                      onClick={() => setFarmerToDelete(farmer.originalIndex)}
+                      className="p-1 text-slate-400 hover:text-red-600 bg-white rounded shadow-sm border border-slate-100"
+                      title="Delete Farmer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
             
             <h3 className="font-bold text-sm text-slate-800 leading-tight pr-12">{farmer.name}</h3>
             

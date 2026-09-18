@@ -15,7 +15,7 @@ service cloud.firestore {
       return isSignedIn() && 
              'email' in request.auth.token && 
              request.auth.token.email != null && 
-             request.auth.token.email.lower() == "patilshrenika0211@gmail.com";
+             request.auth.token.email.lower() == "primeshrivardhan@gmail.com";
     }
 
     function getUserMapping() {
@@ -36,20 +36,33 @@ service cloud.firestore {
       return isSignedIn() && !isAdmin() && getUserMapping() != null && getUserMapping().role == "user";
     }
 
+    function isConsultant() {
+      return isSignedIn() && 
+             !isAdmin() && 
+             getUserMapping() != null && 
+             getUserMapping().role == "consultant";
+    }
+
     // User Mappings - Connects Anonymous/Auth UID to Custom User Profile
-    // Clients can NEVER self-assign the 'admin' role
+    // Clients can NEVER self-assign the 'admin' or 'consultant' role
     match /user_mappings/{uid} {
       allow read: if request.auth.uid == uid || isAdmin();
       allow write: if (
         request.auth.uid == uid && 
-        (!('role' in request.resource.data) || request.resource.data.role != 'admin')
+        (!('role' in request.resource.data) || (request.resource.data.role != 'admin' && request.resource.data.role != 'consultant'))
       ) || isAdmin();
     }
 
-    // Users Collection - Private but readable for login
-    // Clients can NEVER self-assign or escalate their role to 'admin'
+    // Users Collection - Secured to Admins and Document Owners
+    // Clients can NEVER read other users' accounts or self-assign/escalate their role
     match /users/{userId} {
-      allow read: if true;
+      allow get: if isAdmin() || (
+        isSignedIn() && (
+          request.auth.uid == userId || 
+          (getUserMapping() != null && getUserMapping().userId == userId)
+        )
+      );
+      allow list: if isAdmin();
       allow update, delete: if isAdmin() || (
         getUserMapping() != null && 
         getUserMapping().userId == userId && 
@@ -57,7 +70,7 @@ service cloud.firestore {
       );
       allow create: if isAdmin() || (
         isSignedIn() && 
-        (!('role' in request.resource.data) || request.resource.data.role != 'admin')
+        (!('role' in request.resource.data) || (request.resource.data.role != 'admin' && request.resource.data.role != 'consultant'))
       );
     }
 
@@ -65,20 +78,36 @@ service cloud.firestore {
     match /farmers/{farmerId} {
       // Demo/Read-only users cannot read actual business data
       allow read: if isSignedIn() && !isRestrictedDemoUser();
-      allow update: if isAdmin() || request.auth.uid == resource.data.id || request.auth.uid == resource.data.createdBy;
-      allow create: if isSignedIn() && !isRestrictedDemoUser();
-      allow delete: if isAdmin();
+      allow create: if isSignedIn() && !isRestrictedDemoUser() && (
+        isAdmin() || 
+        (isConsultant() && request.resource.data.createdBy == request.auth.uid) ||
+        (!isConsultant() && !isAdmin())
+      );
+      allow update: if isAdmin() || (
+        isConsultant() && 
+        resource.data.createdBy == request.auth.uid && 
+        request.resource.data.createdBy == resource.data.createdBy
+      ) || request.auth.uid == resource.data.id || request.auth.uid == resource.data.createdBy;
+      allow delete: if isAdmin() || (
+        isConsultant() && 
+        'createdBy' in resource.data && 
+        resource.data.createdBy != null && 
+        resource.data.createdBy == request.auth.uid
+      );
     }
 
-    // Master Data - Admin write only
+    // Master Data - Admin write, Consultant limited create
     match /products/{productId} {
       allow read: if !isRestrictedDemoUser();
-      allow write: if isAdmin();
+      allow create: if isAdmin() || isConsultant();
+      allow update, delete: if isAdmin();
     }
 
     match /schedules/{scheduleId} {
       allow read: if !isRestrictedDemoUser();
-      allow write: if isAdmin();
+      allow create: if isAdmin() || isConsultant();
+      allow update: if isAdmin() || (isConsultant() && resource.data.createdBy == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
     match /crops/{cropId} {

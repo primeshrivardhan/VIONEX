@@ -29,7 +29,10 @@ import {
   RefreshCw,
   FileJson
 } from "lucide-react";
-import { AppUser, UserPermissions, Farmer, MasterLocation } from "../types";
+import { AppUser, UserPermissions, Farmer, MasterLocation, DEFAULT_PERMISSIONS, ROLE_PERMISSIONS } from "../types";
+import { createAuthUserIsolated } from "../lib/firebase";
+
+export { DEFAULT_PERMISSIONS, ROLE_PERMISSIONS };
 
 interface AdminViewProps {
   users: AppUser[];
@@ -41,7 +44,7 @@ interface AdminViewProps {
   dealers?: any[];
   onUpdateUser: (userId: string, data: Partial<AppUser>) => void;
   onDeleteUser: (userId: string) => void;
-  onAddUser: (user: Omit<AppUser, "id">) => void;
+  onAddUser: (user: any) => void;
   onUpdateFarmer: (farmerId: string, data: Partial<Farmer>) => void;
   onDeleteFarmer: (farmerId: string) => void;
   onAddProduct?: (product: any) => void;
@@ -50,86 +53,6 @@ interface AdminViewProps {
   onUpdateDealer?: (id: string, data: any) => void;
   onAddAlert?: (alert: any) => void;
 }
-
-const DEFAULT_PERMISSIONS: UserPermissions = {
-  farmers: true,
-  schedules: true,
-  products: true,
-  dealers: true,
-  consultants: false,
-  weather: false,
-  allCrops: false,
-  solutions: false,
-  masterSchedules: false,
-  autoApproveSchedules: false,
-  manageProducts: false,
-  settings: true,
-  alerts: true,
-  farmerAdd: true,
-  farmerEdit: true,
-  farmerDelete: true,
-  dealerAdd: true,
-  dealerEdit: true,
-  dealerDelete: true,
-  productView: true,
-  productAdd: true,
-  productEdit: true,
-  productDelete: true,
-  orderCreate: true,
-  orderEdit: true,
-  paymentEntry: true,
-  collectionEntry: true,
-  reportsView: true,
-  exportExcelPdf: true,
-  dashboardView: true,
-  userManagement: false,
-  syncData: true,
-  canCancel: true,
-  canMarkDone: true,
-};
-
-const ROLE_PERMISSIONS: { [role: string]: UserPermissions } = {
-  admin: {
-    farmers: true, schedules: true, products: true, dealers: true, consultants: true, weather: true, allCrops: true, solutions: true, masterSchedules: true, autoApproveSchedules: true, manageProducts: true, settings: true, alerts: true,
-    farmerAdd: true, farmerEdit: true, farmerDelete: true,
-    dealerAdd: true, dealerEdit: true, dealerDelete: true,
-    productView: true, productAdd: true, productEdit: true, productDelete: true,
-    orderCreate: true, orderEdit: true, paymentEntry: true, collectionEntry: true,
-    reportsView: true, exportExcelPdf: true, dashboardView: true, userManagement: true, syncData: true, canCancel: true, canMarkDone: true
-  },
-  manager: {
-    farmers: true, schedules: true, products: true, dealers: true, consultants: true, weather: true, allCrops: true, solutions: true, masterSchedules: true, autoApproveSchedules: false, manageProducts: true, settings: true, alerts: true,
-    farmerAdd: true, farmerEdit: true, farmerDelete: false,
-    dealerAdd: true, dealerEdit: true, dealerDelete: false,
-    productView: true, productAdd: true, productEdit: true, productDelete: false,
-    orderCreate: true, orderEdit: true, paymentEntry: true, collectionEntry: true,
-    reportsView: true, exportExcelPdf: true, dashboardView: true, userManagement: true, syncData: true, canCancel: true, canMarkDone: true
-  },
-  sales: {
-    farmers: true, schedules: true, products: true, dealers: true, consultants: false, weather: true, allCrops: false, solutions: false, masterSchedules: false, autoApproveSchedules: false, manageProducts: false, settings: false, alerts: true,
-    farmerAdd: true, farmerEdit: true, farmerDelete: false,
-    dealerAdd: true, dealerEdit: true, dealerDelete: false,
-    productView: true, productAdd: false, productEdit: false, productDelete: false,
-    orderCreate: true, orderEdit: false, paymentEntry: true, collectionEntry: true,
-    reportsView: false, exportExcelPdf: false, dashboardView: true, userManagement: false, syncData: true, canCancel: false, canMarkDone: true
-  },
-  viewer: {
-    farmers: true, schedules: true, products: true, dealers: true, consultants: false, weather: true, allCrops: false, solutions: false, masterSchedules: false, autoApproveSchedules: false, manageProducts: false, settings: false, alerts: true,
-    farmerAdd: false, farmerEdit: false, farmerDelete: false,
-    dealerAdd: false, dealerEdit: false, dealerDelete: false,
-    productView: true, productAdd: false, productEdit: false, productDelete: false,
-    orderCreate: false, orderEdit: false, paymentEntry: false, collectionEntry: false,
-    reportsView: true, exportExcelPdf: false, dashboardView: true, userManagement: false, syncData: false, canCancel: false, canMarkDone: false
-  },
-  user: {
-    farmers: true, schedules: true, products: true, dealers: true, consultants: false, weather: false, allCrops: false, solutions: false, masterSchedules: false, autoApproveSchedules: false, manageProducts: false, settings: true, alerts: true,
-    farmerAdd: true, farmerEdit: true, farmerDelete: true,
-    dealerAdd: true, dealerEdit: true, dealerDelete: true,
-    productView: true, productAdd: true, productEdit: true, productDelete: true,
-    orderCreate: true, orderEdit: true, paymentEntry: true, collectionEntry: true,
-    reportsView: true, exportExcelPdf: true, dashboardView: true, userManagement: false, syncData: true, canCancel: true, canMarkDone: true
-  }
-};
 
 function AdminView({ 
   users, 
@@ -177,7 +100,7 @@ function AdminView({
   };
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newUserRole, setNewUserRole] = useState<"admin"| "manager" | "sales" | "viewer" | "user">("user");
+  const [newUserRole, setNewUserRole] = useState<"admin"| "manager" | "sales" | "viewer" | "user" | "consultant">("user");
 
   // Farmer alert states
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
@@ -187,7 +110,9 @@ function AdminView({
   const [alertPriority, setAlertPriority] = useState<'Low' | 'Medium' | 'High' | 'Critical'>("High");
   const [alertTypeSelect, setAlertTypeSelect] = useState<'weather' | 'disease' | 'pest' | 'advisory' | 'system'>("advisory");
 
-  const handleAddUserSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+
+  const handleAddUserSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const name = formData.get("name") as string;
@@ -206,10 +131,47 @@ function AdminView({
         return;
       }
 
+      setIsCreatingUser(true);
+      let authUid: string | undefined;
+
+      // If loginId is an email address, create a real Firebase Auth user via isolated secondary app
+      if (cleanLoginId.includes("@")) {
+        if (password.trim().length < 6) {
+          alert("पासवर्ड किमान ६ अक्षरांचा असणे आवश्यक आहे! (Password must be at least 6 characters)");
+          setIsCreatingUser(false);
+          return;
+        }
+        try {
+          authUid = await createAuthUserIsolated(cleanLoginId, password.trim());
+        } catch (authErr: any) {
+          setIsCreatingUser(false);
+          if (authErr?.code === "auth/email-already-in-use") {
+            alert("हा ईमेल आधीपासूनच Firebase Auth मध्ये नोंदणीकृत आहे! (Email already in use)");
+            return;
+          }
+          if (authErr?.code === "auth/invalid-email") {
+            alert("कृपया वैध ईमेल आयडी प्रविष्ट करा! (Invalid email address)");
+            return;
+          }
+          if (authErr?.code === "auth/weak-password") {
+            alert("पासवर्ड किमान ६ अक्षरांचा असणे आवश्यक आहे! (Password too weak)");
+            return;
+          }
+          if (authErr?.code === "auth/network-request-failed") {
+            alert("इंटरनेट कनेक्शन आवश्यक आहे. कृपया इंटरनेट सुरू करा. (Network connection required)");
+            return;
+          }
+          alert("Firebase Auth युजर तयार करताना त्रुटी आली: " + (authErr?.message || authErr));
+          return;
+        }
+      }
+
+      setIsCreatingUser(false);
+
       onAddUser({
+        ...(authUid ? { id: authUid } : {}),
         name,
         loginId: loginId.trim(),
-        password,
         role: selectedRole,
         status: "approved",
         permissions: ROLE_PERMISSIONS[selectedRole] || DEFAULT_PERMISSIONS,
@@ -233,16 +195,17 @@ function AdminView({
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Login ID (Mobile/Email)</label>
-                <input required name="loginId" type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" placeholder="Login ID" />
+                <input required name="loginId" type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" placeholder="Login ID (e.g. user@vionex.com)" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Password</label>
-                <input required name="password" type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" placeholder="Password" />
+                <input required name="password" type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" placeholder="Password (min 6 chars)" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Role (भूमिका)</label>
                 <select name="role" value={newUserRole} onChange={(e) => setNewUserRole(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
                   <option value="user">User (साधारण युजर)</option>
+                  <option value="consultant">Consultant (कृषी सल्लागार - मर्यादित अधिकार)</option>
                   <option value="admin">Admin (सर्व अधिकार)</option>
                   <option value="manager">Manager (व्यवस्थापक)</option>
                   <option value="sales">Sales User (विक्री प्रतिनिधी)</option>
@@ -250,8 +213,10 @@ function AdminView({
                 </select>
               </div>
               <div className="flex gap-2 pt-4">
-                <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
-                <button type="submit" className="flex-1 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-500">Save</button>
+                <button type="button" disabled={isCreatingUser} onClick={() => setIsAddModalOpen(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={isCreatingUser} className="flex-1 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-500 disabled:opacity-50 flex items-center justify-center gap-1">
+                  {isCreatingUser ? "तयार करत आहे..." : "Save"}
+                </button>
               </div>
             </form>
           </div>
@@ -428,7 +393,7 @@ function AdminView({
               <p className="text-xs text-slate-500">Role: {u.role}</p>
               <div className="flex justify-end gap-2 mt-2">
                 <button className="text-xs bg-slate-100 px-3 py-1 rounded text-slate-600 hover:bg-slate-200" onClick={() => togglePassword(u.loginId)}>
-                  {showPassword[u.loginId] ? u.password : "Show Pass"}
+                  {showPassword[u.loginId] ? (u.password || "•••••• (Auth)") : "Show Pass"}
                 </button>
                 <button className="text-xs bg-red-50 px-3 py-1 rounded text-red-600 hover:bg-red-100" onClick={() => onDeleteUser(u.loginId)}>
                   Delete

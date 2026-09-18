@@ -1,10 +1,10 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, signInAnonymously, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, enableMultiTabIndexedDbPersistence, getDocs, getDocsFromCache, setLogLevel } from 'firebase/firestore';
 import { getMessaging } from 'firebase/messaging';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Resolved configuration for Firebase project: vionex-d47e2
+// Resolved configuration for Firebase project: vionex-d7055
 const resolvedApiKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_API_KEY) || firebaseConfig.apiKey || '';
 
 export const isFirebaseConfigured = Boolean(resolvedApiKey && firebaseConfig.projectId);
@@ -131,6 +131,37 @@ export async function ensureAnonymousAuth(): Promise<any> {
   return anonymousAuthPromise;
 }
 
+/**
+ * Creates a real Firebase Auth user using an isolated secondary FirebaseApp instance.
+ * This GUARANTEES that the current user's session (e.g. Admin) is NEVER disrupted or signed out.
+ */
+export async function createAuthUserIsolated(email: string, pass: string): Promise<string> {
+  if (!isFirebaseConfigured) {
+    throw new Error("Firebase is not configured.");
+  }
+  const cleanEmail = email.trim();
+  const cleanPass = pass.trim();
+  const tempAppName = `isolated_auth_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const tempApp = initializeApp({
+    ...firebaseConfig,
+    apiKey: resolvedApiKey
+  }, tempAppName);
+
+  try {
+    const tempAuth = getAuth(tempApp);
+    const cred = await createUserWithEmailAndPassword(tempAuth, cleanEmail, cleanPass);
+    const uid = cred.user.uid;
+    try {
+      await signOut(tempAuth);
+    } catch (_) {}
+    return uid;
+  } finally {
+    try {
+      await deleteApp(tempApp);
+    } catch (_) {}
+  }
+}
+
 
 let isServerReachable = true;
 let lastConnectionCheck = 0;
@@ -168,7 +199,7 @@ export async function getDocsSafe(q: any, timeoutMs = 2500) {
     serverPromise.catch((err: any) => {
       const msg = err?.message || String(err);
       if (msg.includes("Cloud Firestore API has not been used") || err?.code === "permission-denied") {
-        console.error("[Firestore Notice] Cloud Firestore database is not yet created or enabled for project 'vionex-d47e2'. Enable it in Firebase Console -> Firestore Database -> Create Database.");
+        console.error(`[Firestore Notice] Cloud Firestore database is not yet created or enabled for project '${firebaseConfig.projectId}'. Enable it in Firebase Console -> Firestore Database -> Create Database.`);
       } else {
         console.log("Background Firestore query settled:", msg);
       }

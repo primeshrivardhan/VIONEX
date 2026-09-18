@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "501492785167",
-    "project_id": "vionex-d47e2",
-    "storage_bucket": "vionex-d47e2.firebasestorage.app"
+    "project_number": "678914457609",
+    "project_id": "vionex-d7055",
+    "storage_bucket": "vionex-d7055.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:501492785167:android:06213fcc7a073e3c86037a",
+        "mobilesdk_app_id": "1:678914457609:android:b2f714a652a36c36aeb8d8",
         "android_client_info": {
           "package_name": "com.vionex.smartfarming"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCdjzBYXnrdBDynCVSYgVj0bavo6lMEdkE"
+          "current_key": "AIzaSyB7lD9ykMYwe0AK3SbbDwXNLAdFWIheqdo"
         }
       ],
       "services": {

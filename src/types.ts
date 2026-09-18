@@ -26,7 +26,9 @@ export interface UserPermissions {
 
   // Granular Access Control
   farmerAdd?: boolean;
+  /** For consultants: strictly restricted to editing records where createdBy === request.auth.uid */
   farmerEdit?: boolean;
+  /** For consultants: strictly restricted to deleting records where createdBy === request.auth.uid */
   farmerDelete?: boolean;
   dealerAdd?: boolean;
   dealerEdit?: boolean;
@@ -91,12 +93,101 @@ export interface AppUser {
   name: string;
   loginId: string;
   password?: string;
-  role: 'admin' | 'manager' | 'sales' | 'viewer' | 'user';
+  role: 'admin' | 'manager' | 'sales' | 'viewer' | 'user' | 'consultant';
   status: 'approved' | 'frozen' | 'pending';
   permissions: UserPermissions;
   paidStatus?: 'paid' | 'unpaid';
   access?: boolean;
+  linkedConsultantId?: string;
 }
+
+export const DEFAULT_PERMISSIONS: UserPermissions = {
+  farmers: true,
+  schedules: true,
+  products: true,
+  dealers: true,
+  consultants: false,
+  weather: false,
+  allCrops: false,
+  solutions: false,
+  masterSchedules: false,
+  autoApproveSchedules: false,
+  manageProducts: false,
+  settings: true,
+  alerts: true,
+  farmerAdd: true,
+  farmerEdit: true,
+  farmerDelete: true,
+  dealerAdd: true,
+  dealerEdit: true,
+  dealerDelete: true,
+  productView: true,
+  productAdd: true,
+  productEdit: true,
+  productDelete: true,
+  orderCreate: true,
+  orderEdit: true,
+  paymentEntry: true,
+  collectionEntry: true,
+  reportsView: true,
+  exportExcelPdf: true,
+  dashboardView: true,
+  userManagement: false,
+  syncData: true,
+  canCancel: true,
+  canMarkDone: true,
+};
+
+export const ROLE_PERMISSIONS: { [role: string]: UserPermissions } = {
+  admin: {
+    farmers: true, schedules: true, products: true, dealers: true, consultants: true, weather: true, allCrops: true, solutions: true, masterSchedules: true, autoApproveSchedules: true, manageProducts: true, settings: true, alerts: true,
+    farmerAdd: true, farmerEdit: true, farmerDelete: true,
+    dealerAdd: true, dealerEdit: true, dealerDelete: true,
+    productView: true, productAdd: true, productEdit: true, productDelete: true,
+    orderCreate: true, orderEdit: true, paymentEntry: true, collectionEntry: true,
+    reportsView: true, exportExcelPdf: true, dashboardView: true, userManagement: true, syncData: true, canCancel: true, canMarkDone: true
+  },
+  manager: {
+    farmers: true, schedules: true, products: true, dealers: true, consultants: true, weather: true, allCrops: true, solutions: true, masterSchedules: true, autoApproveSchedules: false, manageProducts: true, settings: true, alerts: true,
+    farmerAdd: true, farmerEdit: true, farmerDelete: false,
+    dealerAdd: true, dealerEdit: true, dealerDelete: false,
+    productView: true, productAdd: true, productEdit: true, productDelete: false,
+    orderCreate: true, orderEdit: true, paymentEntry: true, collectionEntry: true,
+    reportsView: true, exportExcelPdf: true, dashboardView: true, userManagement: true, syncData: true, canCancel: true, canMarkDone: true
+  },
+  sales: {
+    farmers: true, schedules: true, products: true, dealers: true, consultants: false, weather: true, allCrops: false, solutions: false, masterSchedules: false, autoApproveSchedules: false, manageProducts: false, settings: false, alerts: true,
+    farmerAdd: true, farmerEdit: true, farmerDelete: false,
+    dealerAdd: true, dealerEdit: true, dealerDelete: false,
+    productView: true, productAdd: false, productEdit: false, productDelete: false,
+    orderCreate: true, orderEdit: false, paymentEntry: true, collectionEntry: true,
+    reportsView: false, exportExcelPdf: false, dashboardView: true, userManagement: false, syncData: true, canCancel: false, canMarkDone: true
+  },
+  viewer: {
+    farmers: true, schedules: true, products: true, dealers: true, consultants: false, weather: true, allCrops: false, solutions: false, masterSchedules: false, autoApproveSchedules: false, manageProducts: false, settings: false, alerts: true,
+    farmerAdd: false, farmerEdit: false, farmerDelete: false,
+    dealerAdd: false, dealerEdit: false, dealerDelete: false,
+    productView: true, productAdd: false, productEdit: false, productDelete: false,
+    orderCreate: false, orderEdit: false, paymentEntry: false, collectionEntry: false,
+    reportsView: true, exportExcelPdf: false, dashboardView: true, userManagement: false, syncData: false, canCancel: false, canMarkDone: false
+  },
+  user: {
+    farmers: true, schedules: true, products: true, dealers: true, consultants: false, weather: false, allCrops: false, solutions: false, masterSchedules: false, autoApproveSchedules: false, manageProducts: false, settings: true, alerts: true,
+    farmerAdd: true, farmerEdit: true, farmerDelete: true,
+    dealerAdd: true, dealerEdit: true, dealerDelete: true,
+    productView: true, productAdd: true, productEdit: true, productDelete: true,
+    orderCreate: true, orderEdit: true, paymentEntry: true, collectionEntry: true,
+    reportsView: true, exportExcelPdf: true, dashboardView: true, userManagement: false, syncData: true, canCancel: true, canMarkDone: true
+  },
+  consultant: {
+    farmers: true, schedules: true, products: true, dealers: false, consultants: false, weather: true, allCrops: false, solutions: false, masterSchedules: false, autoApproveSchedules: false, manageProducts: false, settings: false, alerts: true,
+    farmerAdd: true, farmerEdit: true, farmerDelete: true,
+    dealerAdd: false, dealerEdit: false, dealerDelete: false,
+    productView: true, productAdd: true, productEdit: false, productDelete: false,
+    orderCreate: false, orderEdit: false, paymentEntry: false, collectionEntry: false,
+    reportsView: false, exportExcelPdf: false, dashboardView: true, userManagement: false, syncData: true, canCancel: false, canMarkDone: true
+  }
+};
 
 export interface Dealer {
   id?: string;
@@ -210,6 +301,7 @@ export interface Consultant {
   address?: string;      // कन्सल्टन्सी पत्ता / Consultancy Address
   workingArea?: string;  // कार्यक्षेत्र / Working Area
   consultingArea?: string; // कन्सल्टिंग क्षेत्र (उदा. १०० एकर) / Consulting Area
+  linkedUserId?: string;   // Real Firebase Auth UID / AppUser ID (No password or auth secrets stored here!)
   createdAt?: number;
   updatedAt?: number;
 }

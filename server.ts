@@ -50,7 +50,7 @@ function getFirebaseAdmin() {
 
         firebaseAdminApp = initializeApp({
           credential,
-          projectId: "vionex-d47e2"
+          projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount?.project_id || "vionex-d7055"
         });
       }
     } catch (err) {
@@ -124,7 +124,8 @@ async function requireAdmin(req: any, res: any, next: any) {
   const uid = req.user.uid;
 
   // 1. Cryptographic Super-Admin check
-  if (email && email === "patilshrenika0211@gmail.com") {
+  const adminEmail = (process.env.ADMIN_EMAIL || "Primeshrivardhan@gmail.com").toLowerCase();
+  if (email && (email === adminEmail || email === "primeshrivardhan@gmail.com")) {
     return next();
   }
 

@@ -499,18 +499,16 @@ export default function App() {
           updateSyncTime();
         });
       } else {
-        if (currentUserId) {
-          unsubUsers = syncCollection<AppUser>("users", (data) => {
-            setUsers(data);
-            updateSyncTime();
-          }, { where: ["id", "==", currentUserId] });
+        if (currentUser?.data) {
+          setUsers([currentUser.data]);
         } else {
           setUsers([]);
         }
       }
   
       // 2. Sync Farmers
-      if (isAdminOrAdminRole) {
+      const isConsultant = currentUser?.type === "user" && currentUser?.data?.role === "consultant";
+      if (isAdminOrAdminRole || isConsultant) {
         unsubFarmers = syncCollection<any>("farmers", (data) => {
           setFarmers(data);
           updateSyncTime();
@@ -677,10 +675,10 @@ export default function App() {
 
   const [lastRefresh, setLastRefresh] = useState(Date.now());
 
-  // Seed initial admin only if NEW_ADMIN_EMAIL is configured
+  // Seed initial admin only if NEW_ADMIN_EMAIL is configured and user is admin
   useEffect(() => {
     const seedAdmin = async () => {
-      if (!NEW_ADMIN_EMAIL || !db) return;
+      if (!NEW_ADMIN_EMAIL || !db || !isAdminOrAdminRole) return;
       try {
         const adminSnap = await getDocsSafe(query(collection(db, "users"), where("loginId", "==", NEW_ADMIN_EMAIL)), 2000);
         if (adminSnap.empty) {
@@ -1103,7 +1101,12 @@ export default function App() {
   const handleUpdateFarmer = (farmerId: string, data: Partial<Farmer>) => {
     const farmer = farmers.find((f) => f.id === farmerId);
     if (farmer) {
-      saveItem("farmers", { ...farmer, ...data }, farmerId);
+      saveItem("farmers", { 
+        ...farmer, 
+        ...data, 
+        createdBy: farmer.createdBy, 
+        createdByUserId: farmer.createdByUserId || farmer.createdBy 
+      }, farmerId);
     }
   };
 
@@ -1138,8 +1141,32 @@ export default function App() {
     });
   };
 
-  const handleAddUser = (userData: Omit<AppUser, "id">) => {
-    saveItem("users", userData);
+  const handleAddUser = async (userData: any) => {
+    const docId = userData.id || undefined;
+    const sanitizedUser = { ...userData };
+    delete sanitizedUser.password; // Security: NEVER persist plaintext passwords to Firestore
+    await saveItem("users", sanitizedUser, docId);
+
+    // If a Firebase Auth UID is attached, synchronize their Firestore user mapping & admin status
+    if (userData.id && db) {
+      try {
+        await setDoc(doc(db, "user_mappings", userData.id), {
+          userId: userData.id,
+          role: userData.role,
+          loginId: userData.loginId,
+        }, { merge: true });
+
+        if (userData.role === "admin") {
+          await setDoc(doc(db, "admins", userData.id), {
+            email: userData.loginId,
+            role: "admin",
+            updatedAt: Date.now(),
+          }, { merge: true });
+        }
+      } catch (err) {
+        console.warn("Notice: Failed to sync user mapping / admin status:", err);
+      }
+    }
   };
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -1442,13 +1469,23 @@ export default function App() {
 
         if (!userDoc && db) {
           try {
-            const q = query(
-              collection(db, "users"),
-              where("loginId", "==", cleanId),
-            );
-            const snap = await getDocsSafe(q, 3000);
-            if (!snap.empty) {
-              userDoc = { ...(snap.docs[0].data() as any), id: snap.docs[0].id } as AppUser;
+            // 1. Direct document fetch by UID (works under strict owner-only rule request.auth.uid == userId)
+            if (fbUser.uid) {
+              const docSnap = await getDoc(doc(db, "users", fbUser.uid));
+              if (docSnap.exists()) {
+                userDoc = { ...(docSnap.data() as any), id: docSnap.id } as AppUser;
+              }
+            }
+            // 2. Query fallback for admins
+            if (!userDoc && (isSuperAdmin || isExistingAdmin)) {
+              const q = query(
+                collection(db, "users"),
+                where("loginId", "==", cleanId),
+              );
+              const snap = await getDocsSafe(q, 3000);
+              if (!snap.empty) {
+                userDoc = { ...(snap.docs[0].data() as any), id: snap.docs[0].id } as AppUser;
+              }
             }
           } catch (qErr) {
             console.warn("Could not query user doc from Firestore:", qErr);
@@ -1745,6 +1782,7 @@ export default function App() {
     currentUser?.type === "admin" ||
     (currentUser?.type === "user" && currentUser?.data?.role === "admin");
   const currentCreatorId = getCreatorId();
+  const currentAuthUid = auth?.currentUser?.uid || currentCreatorId;
 
   const logUserActivity = (
     action: "create" | "update" | "delete",
@@ -1841,7 +1879,8 @@ export default function App() {
 
   const displayFarmersForSchedule = useMemo(() => {
     const activeFarmers = (farmers || []).filter((f) => f && !f.isDeleted);
-    if (isAdminOrAdminRole) return activeFarmers;
+    const isConsultant = currentUser?.type === "user" && currentUser?.data?.role === "consultant";
+    if (isAdminOrAdminRole || isConsultant) return activeFarmers;
     
     // Create a set of farmer IDs created by the current user according to activity logs
     const loggedFarmerIds = new Set<string>();
@@ -2370,11 +2409,12 @@ export default function App() {
                 dealers={displayDealers}
                 onSave={(data) => {
                   if (editingFarmerIndex !== null) {
-                    const id = displayFarmersForSchedule[editingFarmerIndex].id;
+                    const originalFarmer = displayFarmersForSchedule[editingFarmerIndex];
+                    const id = originalFarmer.id;
                     const saveData = {
                       ...data,
-                      createdBy: data.createdBy || currentCreatorId,
-                      createdByUserId: data.createdByUserId || currentCreatorId,
+                      createdBy: originalFarmer.createdBy || data.createdBy || currentAuthUid,
+                      createdByUserId: originalFarmer.createdByUserId || data.createdByUserId || currentAuthUid,
                       approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
                     };
                     saveItem("farmers", saveData, id);
@@ -2407,13 +2447,15 @@ export default function App() {
 
                     if (existingFarmer) {
                       const currentLinks = existingFarmer.linkedUsers || [];
-                      if (!currentLinks.includes(currentCreatorId)) {
-                        currentLinks.push(currentCreatorId);
+                      if (!currentLinks.includes(currentAuthUid)) {
+                        currentLinks.push(currentAuthUid);
                       }
                       const updatedFarmer = {
                         ...existingFarmer,
                         ...data,
                         linkedUsers: currentLinks,
+                        createdBy: existingFarmer.createdBy || currentAuthUid,
+                        createdByUserId: existingFarmer.createdByUserId || existingFarmer.createdBy || currentAuthUid,
                         id: existingFarmer.id,
                         isDeleted: false
                       };
@@ -2424,8 +2466,8 @@ export default function App() {
                       const saveData = {
                         ...data,
                         id: uniqueId,
-                        createdBy: currentCreatorId,
-                        createdByUserId: currentCreatorId,
+                        createdBy: currentAuthUid,
+                        createdByUserId: currentAuthUid,
                         approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
                       };
                       saveItem("farmers", saveData, uniqueId).then((newId) => {
@@ -2645,7 +2687,9 @@ export default function App() {
                   <FarmerList
                     farmers={displayFarmersForSchedule}
                     canManage={isAdminOrAdminRole || (currentUser?.type === "user" && !!currentUser.data?.permissions?.farmers)}
-                    permissions={currentUser?.permissions}
+                    permissions={currentUser?.data?.permissions || currentUser?.permissions}
+                    currentUserId={currentAuthUid}
+                    isAdmin={isAdminOrAdminRole}
                     onAddFarmer={() => navigateTo("add-farmer")}
                     onEditFarmer={(index) => {
                       setEditingFarmerIndex(index);

@@ -19,7 +19,7 @@ export const HOSTING_URL: string =
 
 // Super-Admin Configuration
 export const NEW_ADMIN_EMAIL: string = 
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADMIN_EMAIL) || "patilshrenika0211@gmail.com";
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADMIN_EMAIL) || "Primeshrivardhan@gmail.com";
 
 export const NEW_ADMIN_DISPLAY_NAME: string = 
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADMIN_DISPLAY_NAME) || "";

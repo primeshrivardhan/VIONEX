@@ -1,12 +1,12 @@
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// Firebase Cloud Messaging Service Worker (vionex-d47e2)
+// Firebase Cloud Messaging Service Worker (vionex-d7055)
 const firebaseConfig = {
-  projectId: "vionex-d47e2",
-  messagingSenderId: "501492785167",
-  appId: "1:501492785167:web:0cb4f5b1bb01ebed86037a",
-  apiKey: "AIzaSyAeeIhfd49DASQW6gmuZCa92QbutuPJyKM"
+  projectId: "vionex-d7055",
+  messagingSenderId: "678914457609",
+  appId: "1:678914457609:web:726c9045eaa5cc1daeb8d8",
+  apiKey: "AIzaSyB98XAJEhzScUJcry3HCoXLE5G0TzQJ_dU"
 };
 
 let messaging = null;

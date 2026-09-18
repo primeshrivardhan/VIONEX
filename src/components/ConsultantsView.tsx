@@ -13,10 +13,16 @@ import {
   X, 
   AlertCircle,
   Clock,
-  Layers
+  Layers,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Key
 } from "lucide-react";
 import { syncCollection, saveItem, deleteItem } from "../lib/data-sync";
-import { Consultant } from "../types";
+import { Consultant, ROLE_PERMISSIONS } from "../types";
+import { db, createAuthUserIsolated } from "../lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 export default function ConsultantsView() {
   const [consultants, setConsultants] = useState<Consultant[]>([]);
@@ -25,7 +31,13 @@ export default function ConsultantsView() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<Omit<Consultant, "id" | "createdAt" | "updatedAt">>({
+  // App login credentials state for new consultant
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState<Omit<Consultant, "id" | "createdAt" | "updatedAt" | "linkedUserId">>({
     name: "",
     phone: "",
     alternatePhone: "",
@@ -63,6 +75,8 @@ export default function ConsultantsView() {
       workingArea: c.workingArea || "",
       consultingArea: c.consultingArea || ""
     });
+    setLoginEmail("");
+    setLoginPassword("");
     setErrorMessage(null);
     setSuccessMessage(null);
     setDeletingId(null);
@@ -83,11 +97,21 @@ export default function ConsultantsView() {
       workingArea: "",
       consultingArea: ""
     });
+    setLoginEmail("");
+    setLoginPassword("");
     setErrorMessage(null);
   };
 
   const confirmDelete = async (id: string) => {
     try {
+      const target = consultants.find(c => c.id === id);
+      if (target?.linkedUserId) {
+        try {
+          await deleteItem("users", target.linkedUserId);
+        } catch (uErr) {
+          console.warn("Notice: Could not delete linked user profile:", uErr);
+        }
+      }
       await deleteItem("consultants", id);
       showStatus("कन्सल्टंट माहिती यशस्वीरीत्या डिलीट केली आहे!", "success");
       setDeletingId(null);
@@ -128,7 +152,53 @@ export default function ConsultantsView() {
       return;
     }
 
+    // Login credentials validation for new consultant
+    if (!editingId) {
+      const cleanEmail = loginEmail.trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes("@")) {
+        showStatus("कृपया वैध लॉगिन ईमेल आयडी प्रविष्ट करा (उदा. consultant@vionex.com).", "error");
+        return;
+      }
+      if (!loginPassword.trim() || loginPassword.trim().length < 6) {
+        showStatus("लॉगिन पासवर्ड किमान ६ अक्षरांचा असणे आवश्यक आहे.", "error");
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+
     try {
+      let authUid: string | undefined;
+
+      // 1. Create real Firebase Auth user via isolated secondary app instance (Admin session is NEVER disrupted)
+      if (!editingId) {
+        const cleanEmail = loginEmail.trim().toLowerCase();
+        try {
+          authUid = await createAuthUserIsolated(cleanEmail, loginPassword.trim());
+        } catch (authErr: any) {
+          setIsSubmitting(false);
+          if (authErr?.code === "auth/email-already-in-use") {
+            showStatus("हा ईमेल आयडी आधीपासूनच Firebase Auth मध्ये नोंदणीकृत आहे! (Email already in use)", "error");
+            return;
+          }
+          if (authErr?.code === "auth/invalid-email") {
+            showStatus("कृपया वैध ईमेल आयडी प्रविष्ट करा. (Invalid email format)", "error");
+            return;
+          }
+          if (authErr?.code === "auth/weak-password") {
+            showStatus("पासवर्ड किमान ६ अक्षरांचा असणे आवश्यक आहे. (Password too weak)", "error");
+            return;
+          }
+          if (authErr?.code === "auth/network-request-failed") {
+            showStatus("इंटरनेट कनेक्शन उपलब्ध नाही. खाते तयार करण्यासाठी इंटरनेट सुरू करा.", "error");
+            return;
+          }
+          showStatus("लॉगिन खाते तयार करताना त्रुटी आली: " + (authErr?.message || authErr), "error");
+          return;
+        }
+      }
+
+      // 2. Save public business directory payload (NO passwords or auth secrets!)
       const payload: any = {
         name: formData.name.trim(),
         phone: formData.phone.trim(),
@@ -143,22 +213,61 @@ export default function ConsultantsView() {
 
       if (!editingId) {
         payload.createdAt = Date.now();
+        if (authUid) {
+          payload.linkedUserId = authUid; // Only store UID reference
+        }
       } else {
-        // preserve original createdAt if available
         const original = consultants.find(c => c.id === editingId);
         if (original && original.createdAt) {
           payload.createdAt = original.createdAt;
         } else {
           payload.createdAt = Date.now();
         }
+        if (original && original.linkedUserId) {
+          payload.linkedUserId = original.linkedUserId;
+        }
       }
 
-      await saveItem("consultants", payload, editingId || undefined);
-      
+      const savedDoc = await saveItem("consultants", payload, editingId || undefined);
+      const consultantDocId = savedDoc?.id || editingId || "";
+
+      // 3. If new user was created, save user profile in /users and mapping in /user_mappings
+      if (!editingId && authUid) {
+        const cleanEmail = loginEmail.trim().toLowerCase();
+        
+        // Save AppUser in /users/{authUid} with consultant role & permissions (NO plaintext passwords)
+        await saveItem("users", {
+          id: authUid,
+          name: formData.name.trim(),
+          loginId: cleanEmail,
+          role: "consultant",
+          status: "approved",
+          permissions: ROLE_PERMISSIONS.consultant,
+          paidStatus: "paid",
+          access: true,
+          linkedConsultantId: consultantDocId,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        }, authUid);
+
+        // Save User Mapping in /user_mappings/{authUid} (Enables rule checks for consultant)
+        if (db) {
+          try {
+            await setDoc(doc(db, "user_mappings", authUid), {
+              userId: authUid,
+              role: "consultant",
+              loginId: cleanEmail,
+            }, { merge: true });
+          } catch (mapErr) {
+            console.warn("Notice: Failed to sync consultant user mapping:", mapErr);
+          }
+        }
+      }
+
       showStatus(
         editingId 
           ? "कन्सल्टंट माहिती यशस्वीरीत्या अपडेट केली आहे!" 
-          : "कन्सल्टंट माहिती यशस्वीरीत्या सेव्ह केली आहे!", 
+          : "नवीन कन्सल्टंट व लॉगिन खाते यशस्वीरीत्या सेव्ह केले आहे!", 
         "success"
       );
 
@@ -167,6 +276,8 @@ export default function ConsultantsView() {
     } catch (err) {
       console.error("Error saving consultant:", err);
       showStatus("माहिती सेव्ह करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -219,6 +330,59 @@ export default function ConsultantsView() {
                 placeholder="उदा. डॉ. संजय पाटील"
               />
             </div>
+
+            {/* App Login Credentials (ONLY when creating new consultant) */}
+            {!editingId ? (
+              <div className="p-3.5 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-black text-emerald-800 uppercase tracking-wider">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>ॲप लॉगिन खात्याचे तपशील (App Login Credentials) *</span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  या कन्सल्टंटसाठी थेट लॉगिन खाते तयार होईल. (भूमिका: कृषी सल्लागार - Consultant)
+                </p>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    लॉगिन आयडी / ईमेल (Login Email) *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all text-xs font-semibold"
+                    placeholder="उदा. consultant@vionex.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    लॉगिन पासवर्ड (Password - किमान ६ अक्षरे) *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="w-full px-3.5 py-2 pr-10 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all text-xs font-semibold"
+                      placeholder="पासवर्ड प्रविष्ट करा"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>लॉगिन पासवर्ड व रोल ॲडमिन पॅनेलमधून (Admin Panel) व्यवस्थापित केले जातात.</span>
+              </div>
+            )}
 
             {/* Phone & Alternate Phone Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -328,10 +492,11 @@ export default function ConsultantsView() {
               )}
               <button
                 type="submit"
-                className="flex-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-md shadow-emerald-600/10 hover:shadow-emerald-700/20 transition-all text-sm flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="flex-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-md shadow-emerald-600/10 hover:shadow-emerald-700/20 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Save className="w-4.5 h-4.5" />
-                {editingId ? "माहिती अपडेट करा" : "डिटेल्स सेव्ह करा"}
+                {isSubmitting ? "तयार करत आहे..." : (editingId ? "माहिती अपडेट करा" : "डिटेल्स सेव्ह करा")}
               </button>
             </div>
           </form>
@@ -376,6 +541,12 @@ export default function ConsultantsView() {
                             <Briefcase className="w-3 h-3" />
                             {item.specialty}
                           </span>
+                          {item.linkedUserId && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 shrink-0" title="App Login Active">
+                              <CheckCircle className="w-2.5 h-2.5 text-blue-600" />
+                              लॉगिन सक्रिय
+                            </span>
+                          )}
                         </div>
 
                         {/* Details Grid */}
