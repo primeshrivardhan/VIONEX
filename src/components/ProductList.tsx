@@ -4,6 +4,7 @@ import { translateCompositionToMarathi, translateMarathiToEnglish, formatDualDis
 import { standardizeCompanyName } from "../lib/company-helper";
 import ProductDetailsModal from "./ProductDetailsModal";
 import { Product } from "../types";
+import { registerBackHandler } from "../lib/backNavigation";
 
 interface ProductListProps {
   products: Product[];
@@ -85,6 +86,16 @@ export default memo(function ProductList({
   const [showFilters, setShowFilters] = useState(false);
   const [pageSize, setPageSize] = useState(30);
   const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
+
+  // Back button handling: dismiss product details modal when open
+  useEffect(() => {
+    if (selectedProductDetails) {
+      return registerBackHandler(() => {
+        setSelectedProductDetails(null);
+        return true;
+      });
+    }
+  }, [selectedProductDetails]);
 
   const isEn = language === "en";
 

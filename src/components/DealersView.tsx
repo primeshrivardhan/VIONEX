@@ -9,6 +9,7 @@ import { generateVillageCode } from "../hooks/useMasterLocations";
 import { getSmartLocation } from "../lib/geo-helper";
 import { db } from "../lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
+import { registerBackHandler } from "../lib/backNavigation";
 
 const BUSINESS_TYPES = [
   "Proprietorship (मालकी हक्क)",
@@ -207,6 +208,44 @@ export default function DealersView({
     window.addEventListener('edit-dealer', handleEditEvent);
     return () => window.removeEventListener('edit-dealer', handleEditEvent);
   }, []);
+
+  // Back button handling: dismiss modals/drawers when open
+  useEffect(() => {
+    if (isFormOpen) {
+      return registerBackHandler(() => {
+        setIsFormOpen(false);
+        setEditingDealer(null);
+        return true;
+      });
+    }
+  }, [isFormOpen]);
+
+  useEffect(() => {
+    if (isBroadcastModalOpen) {
+      return registerBackHandler(() => {
+        setIsBroadcastModalOpen(false);
+        return true;
+      });
+    }
+  }, [isBroadcastModalOpen]);
+
+  useEffect(() => {
+    if (showBroadcastHistory) {
+      return registerBackHandler(() => {
+        setShowBroadcastHistory(false);
+        return true;
+      });
+    }
+  }, [showBroadcastHistory]);
+
+  useEffect(() => {
+    if (dealerToDelete) {
+      return registerBackHandler(() => {
+        setDealerToDelete(null);
+        return true;
+      });
+    }
+  }, [dealerToDelete]);
 
 
   const autoDetectDealerLocation = async () => {

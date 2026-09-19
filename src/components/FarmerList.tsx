@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Search, Trash2, Edit2, Phone, MapPin, Store, Printer } from "lucide-react";
 import ConfirmationModal from "./ConfirmationModal";
 import { motion } from "motion/react";
+import { registerBackHandler } from "../lib/backNavigation";
+import { getCropPlotLabel } from "../lib/utils";
 
 interface Farmer {
   id?: string;
@@ -41,6 +43,16 @@ export default function FarmerList({
   const [searchQuery, setSearchQuery] = useState("");
   const [farmerToDelete, setFarmerToDelete] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState(20);
+
+  // Back button handling: dismiss delete confirmation modal when open
+  useEffect(() => {
+    if (farmerToDelete !== null) {
+      return registerBackHandler(() => {
+        setFarmerToDelete(null);
+        return true;
+      });
+    }
+  }, [farmerToDelete]);
 
   const filteredFarmers = farmers
     .map((farmer, index) => ({ ...farmer, originalIndex: index }))
@@ -171,11 +183,10 @@ export default function FarmerList({
               {farmer.crops && farmer.crops.length > 0 ? (
                 farmer.crops.map((c: any, i: number) => (
                   <span
-                    key={i}
+                    key={c.id || i}
                     className="inline-flex items-center text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
                   >
-                    {c.crop || "नोंद नाही"}
-                    {c.area ? ` (${c.area}A)` : ""}
+                    {getCropPlotLabel(c, i, farmer.crops)}
                   </span>
                 ))
               ) : (

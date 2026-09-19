@@ -382,6 +382,74 @@ export function getDoseLabel(method: string): string {
   return "Spray Dose (फवारणी मात्रा)";
 }
 
+/**
+ * Returns a distinct and human-friendly label for a farmer's crop planting/plot.
+ * Supports:
+ * - Custom plotName if entered (e.g. "प्लॉट १", "घरचा मळा")
+ * - Automatic plot numbering if multiple plantings of the same crop exist
+ * - Variety and acreage details to guarantee visual uniqueness
+ */
+export function getCropPlotLabel(
+  cropEntry: any,
+  index: number = 0,
+  allCrops: any[] = [],
+  options: { includeArea?: boolean; short?: boolean } = { includeArea: true }
+): string {
+  if (!cropEntry) return "";
+  const cropName = (cropEntry.crop || "नोंद नाही").trim();
+  const area = cropEntry.area ? `${cropEntry.area}A` : "";
+  const variety = (cropEntry.variety || "").trim();
+  const plotName = (cropEntry.plotName || "").trim();
+
+  // Find how many entries of this exact crop exist for this farmer
+  const sameCropEntries = (allCrops || []).filter(
+    (c) => (c.crop || "").trim().toLowerCase() === cropName.toLowerCase()
+  );
+  const isMultiPlot = sameCropEntries.length > 1;
+
+  // 1. If explicit plotName is provided by user (Option B)
+  if (plotName) {
+    if (variety && options.includeArea && area) {
+      return `${cropName} - ${plotName} (${variety}, ${area})`;
+    } else if (variety) {
+      return `${cropName} - ${plotName} (${variety})`;
+    } else if (options.includeArea && area) {
+      return `${cropName} - ${plotName} (${area})`;
+    }
+    return `${cropName} - ${plotName}`;
+  }
+
+  // 2. If multiple plantings of the same crop exist, automatically number them
+  if (isMultiPlot) {
+    // Find plot index among the same crops (1, 2, 3...)
+    const plotNumber =
+      sameCropEntries.findIndex(
+        (c) => (c.id && cropEntry.id && c.id === cropEntry.id) || c === cropEntry
+      ) + 1 || (index + 1);
+
+    const plotLabel = `प्लॉट ${plotNumber}`;
+
+    if (variety && options.includeArea && area) {
+      return `${cropName} - ${plotLabel} (${variety}, ${area})`;
+    } else if (variety) {
+      return `${cropName} - ${plotLabel} (${variety})`;
+    } else if (options.includeArea && area) {
+      return `${cropName} - ${plotLabel} (${area})`;
+    }
+    return `${cropName} - ${plotLabel}`;
+  }
+
+  // 3. Single planting of this crop
+  if (variety && options.includeArea && area) {
+    return `${cropName} (${variety}, ${area})`;
+  } else if (options.includeArea && area) {
+    return `${cropName} (${area})`;
+  } else if (variety) {
+    return `${cropName} (${variety})`;
+  }
+  return cropName;
+}
+
 export const isScheduleForFarmer = (s: any, selectedFarmerId: string, selFarmer?: any) => {
   if (!s) return false;
   const possibleIds = new Set<string>();

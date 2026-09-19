@@ -24,6 +24,10 @@ import AdminView from "./components/AdminView";
 import SettingsView from "./components/SettingsView";
 
 import { Crop, AppUser, Farmer, Dealer, Alert } from "./types";
+import { registerBackHandler, executeTopBackHandler } from "./lib/backNavigation";
+import { App as CapApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+import { Toast } from "@capacitor/toast";
 
 
 import { generateVillageCode } from "./hooks/useMasterLocations";
@@ -982,26 +986,23 @@ export default function App() {
     return "dashboard";
   });
 
-  // Effect to listen for URL changes and update view/tab accordingly (Deep-linking)
-  useEffect(() => {
-    const handleUrlChange = () => {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const v = urlParams.get('view');
-        if (v === "dashboard" || v === "add" || v === "advice" || v === "add-farmer" || v === "add-product" || v === "add-schedule") {
-          setView(v as any);
-        }
-        const tab = urlParams.get('tab');
-        if (tab) {
-          setActiveTab(tab);
-        }
-      } catch (e) {
-        console.error("URL Change listener failed:", e);
-      }
-    };
-    window.addEventListener('popstate', handleUrlChange);
-    return () => window.removeEventListener('popstate', handleUrlChange);
-  }, []);
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get('tab');
+      if (tab) return tab;
+    } catch (e) {}
+    
+    const saved = localStorage.getItem("vionex-current-user");
+    if (saved) {
+      const user = (saved === "undefined" ? undefined : safeJsonParse(saved));
+      if (user?.type === "farmer") return "schedule";
+    }
+    return "dashboard";
+  });
+
+  const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [language, setLanguage] = useState<"mr" | "en">(() => {
     const saved = localStorage.getItem("vionex-app-language");
@@ -1014,18 +1015,10 @@ export default function App() {
     localStorage.setItem("vionex-app-language", nextLang);
   }, [language]);
 
-
-
-  const [editingFarmerIndex, setEditingFarmerIndex] = useState<number | null>(
-    null,
-  );
+  const [editingFarmerIndex, setEditingFarmerIndex] = useState<number | null>(null);
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
-  const [editingProductIndex, setEditingProductIndex] = useState<number | null>(
-    null,
-  );
-  const [editingScheduleIndex, setEditingScheduleIndex] = useState<
-    number | null
-  >(null);
+  const [editingProductIndex, setEditingProductIndex] = useState<number | null>(null);
+  const [editingScheduleIndex, setEditingScheduleIndex] = useState<number | null>(null);
   const [prefilledSchedule, setPrefilledSchedule] = useState<any>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -1039,52 +1032,267 @@ export default function App() {
     onConfirm: () => {},
   });
 
-  const navigateTo = (newView: typeof view) => {
+  // Navigation History Stack Interface & State
+  interface NavSnapshot {
+    view: "dashboard" | "add" | "advice" | "add-farmer" | "add-product" | "add-schedule";
+    activeTab: string;
+    editingFarmerIndex: number | null;
+    editingProductIndex: number | null;
+    editingScheduleIndex: number | null;
+    prefilledSchedule: any;
+    selectedCrop: Crop | null;
+  }
+
+  const historyStackRef = useRef<NavSnapshot[]>([]);
+  const currentSnapshotRef = useRef<NavSnapshot>({
+    view,
+    activeTab,
+    editingFarmerIndex,
+    editingProductIndex,
+    editingScheduleIndex,
+    prefilledSchedule,
+    selectedCrop,
+  });
+
+  // Keep current snapshot in sync
+  useEffect(() => {
+    currentSnapshotRef.current = {
+      view,
+      activeTab,
+      editingFarmerIndex,
+      editingProductIndex,
+      editingScheduleIndex,
+      prefilledSchedule,
+      selectedCrop,
+    };
+  }, [view, activeTab, editingFarmerIndex, editingProductIndex, editingScheduleIndex, prefilledSchedule, selectedCrop]);
+
+  const pushCurrentStateToHistory = useCallback(() => {
+    const current = currentSnapshotRef.current;
+    const stack = historyStackRef.current;
+    const last = stack[stack.length - 1];
+
+    const isSameAsLast =
+      last &&
+      last.view === current.view &&
+      last.activeTab === current.activeTab &&
+      last.editingFarmerIndex === current.editingFarmerIndex &&
+      last.editingProductIndex === current.editingProductIndex &&
+      last.editingScheduleIndex === current.editingScheduleIndex;
+
+    if (!isSameAsLast) {
+      stack.push({ ...current });
+      if (typeof window !== "undefined") {
+        window.history.pushState({ stackIndex: stack.length }, "");
+      }
+    }
+  }, []);
+
+  const navigateTo = useCallback((newView: typeof view) => {
+    pushCurrentStateToHistory();
     if (newView !== "add-farmer") setEditingFarmerIndex(null);
     if (newView !== "add-product") setEditingProductIndex(null);
     if (newView !== "add-schedule") setEditingScheduleIndex(null);
-
     setView(newView);
-    window.history.pushState({ view: newView, activeTab }, "", "");
-  };
+  }, [pushCurrentStateToHistory]);
 
-  const handleBack = () => {
-    setEditingFarmerIndex(null);
-    setEditingProductIndex(null);
-    setEditingScheduleIndex(null);
-    setPrefilledSchedule(null);
+  const lastBackPressTimeRef = useRef<number>(0);
+  const exitToastTimerRef = useRef<any>(null);
 
-    // If we're not already on the dashboard, navigate back through browser history.
-    // The popstate listener will handle updating React states correctly.
+  const handleBackStep = useCallback(() => {
+    console.log("[BackNav] handleBackStep triggered. Current view:", view, "activeTab:", activeTab);
+
+    // 1. Close any registered modal, bottom sheet, or dialog first
+    const modalHandled = executeTopBackHandler();
+    console.log("[BackNav] executeTopBackHandler returned:", modalHandled);
+    if (modalHandled) {
+      return true; // Handled by dismissing the open modal
+    }
+
+    // Close App's sidebar drawer if open
+    if (isSidebarOpen) {
+      console.log("[BackNav] Closing sidebar drawer");
+      setIsSidebarOpen(false);
+      return true;
+    }
+
+    // Close App's delete confirmation modal if open
+    if (deleteConfirmation.isOpen) {
+      console.log("[BackNav] Closing delete confirmation dialog");
+      setDeleteConfirmation((prev) => ({ ...prev, isOpen: false }));
+      return true;
+    }
+
+    // 2. Pop from navigation history stack
+    console.log("[BackNav] Checking historyStackRef length:", historyStackRef.current.length);
+    if (historyStackRef.current.length > 0) {
+      const prev = historyStackRef.current.pop()!;
+      console.log("[BackNav] Popped previous screen:", prev);
+      setView(prev.view);
+      setActiveTab(prev.activeTab);
+      setEditingFarmerIndex(prev.editingFarmerIndex ?? null);
+      setEditingProductIndex(prev.editingProductIndex ?? null);
+      setEditingScheduleIndex(prev.editingScheduleIndex ?? null);
+      setPrefilledSchedule(prev.prefilledSchedule ?? null);
+      setSelectedCrop(prev.selectedCrop ?? null);
+      return true;
+    }
+
+    // Fallback: If on a sub-form screen without history, return to dashboard view
     if (view !== "dashboard") {
-      window.history.back();
-    }
-  };
-
-  useEffect(() => {
-    // Initialize history state on load
-    if (!window.history.state) {
-      window.history.replaceState(
-        { view: "dashboard", activeTab: "dashboard" },
-        "",
-        "",
-      );
-    }
-
-    const handlePopState = (event: PopStateEvent) => {
+      console.log("[BackNav] Sub-form screen with empty history. Resetting to dashboard view.");
+      setView("dashboard");
       setEditingFarmerIndex(null);
       setEditingProductIndex(null);
       setEditingScheduleIndex(null);
       setPrefilledSchedule(null);
+      setSelectedCrop(null);
+      return true;
+    }
 
-      const state = event.state || {
-        view: "dashboard",
-        activeTab: "dashboard",
-      };
-      setView(state.view);
-      if (state.activeTab) {
-        setActiveTab(state.activeTab);
+    // Fallback: If on a non-root tab without history, return to root tab
+    const isFarmerUser = currentUser?.type === "farmer";
+    const rootTab = isFarmerUser ? "schedule" : "dashboard";
+    if (activeTab !== rootTab && activeTab !== "dashboard") {
+      console.log("[BackNav] Non-root tab with empty history. Returning to root tab:", rootTab);
+      setActiveTab(rootTab);
+      return true;
+    }
+
+    // 3. Root screen reached: handle double back to exit
+    const now = Date.now();
+    const diff = now - lastBackPressTimeRef.current;
+    console.log("[BackNav] Root screen reached. now:", now, "lastPress:", lastBackPressTimeRef.current, "diff:", diff);
+
+    if (diff > 0 && diff < 2000) {
+      console.log("[BackNav] >>> SECOND PRESS DETECTED within 2000ms window! Exiting application... <<<");
+      lastBackPressTimeRef.current = 0;
+
+      try {
+        const isNative = Capacitor.isNativePlatform();
+        const platform = Capacitor.getPlatform();
+        console.log(`[BackNav] Exiting native app. Platform: ${platform}, isNative: ${isNative}`);
+
+        if (isNative) {
+          console.log("[BackNav] Calling CapApp.exitApp()...");
+          CapApp.exitApp();
+        } else {
+          console.warn("[BackNav] Running in browser/web; App.exitApp() cannot close a browser tab.");
+        }
+
+        // Direct fallback through global Capacitor object
+        const winCap = (window as any).Capacitor;
+        if (winCap?.Plugins?.App?.exitApp) {
+          console.log("[BackNav] Calling window.Capacitor.Plugins.App.exitApp()...");
+          winCap.Plugins.App.exitApp();
+        }
+
+        // Direct fallback through legacy navigator.app
+        if ((navigator as any).app?.exitApp) {
+          console.log("[BackNav] Calling navigator.app.exitApp()...");
+          (navigator as any).app.exitApp();
+        }
+      } catch (err) {
+        console.error("[BackNav] Error while attempting to exit app:", err);
       }
+      return false;
+    }
+
+    // First back press at root: prompt user to press again
+    console.log("[BackNav] >>> FIRST PRESS at root. Showing native toast and starting 2000ms window. <<<");
+    lastBackPressTimeRef.current = now;
+    Toast.show({
+      text: "पुन्हा Back दाबा बाहेर पडण्यासाठी",
+      duration: "short",
+      position: "bottom",
+    }).catch((err) => {
+      console.warn("[BackNav] Native toast error:", err);
+    });
+
+    if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
+    exitToastTimerRef.current = setTimeout(() => {
+      console.log("[BackNav] 2000ms exit window expired without second press. Resetting.");
+      lastBackPressTimeRef.current = 0;
+    }, 2000);
+
+    return true;
+  }, [isSidebarOpen, deleteConfirmation.isOpen, view, activeTab, currentUser?.type]);
+
+  const handleBackStepRef = useRef(handleBackStep);
+  useEffect(() => {
+    handleBackStepRef.current = handleBackStep;
+  });
+
+  const handleBack = useCallback(() => {
+    handleBackStepRef.current();
+  }, []);
+
+  // Register back actions for App's own modals
+  useEffect(() => {
+    if (isSidebarOpen) {
+      return registerBackHandler(() => {
+        setIsSidebarOpen(false);
+        return true;
+      });
+    }
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    if (deleteConfirmation.isOpen) {
+      return registerBackHandler(() => {
+        setDeleteConfirmation((prev) => ({ ...prev, isOpen: false }));
+        return true;
+      });
+    }
+  }, [deleteConfirmation.isOpen]);
+
+  // Hardware Back Button Listener (Capacitor Native Android)
+  // Attached ONCE on mount with stable ref delegation
+  useEffect(() => {
+    let listenerHandle: any = null;
+
+    const setupBackListener = async () => {
+      try {
+        if (Capacitor.isNativePlatform()) {
+          console.log("[BackNav] Registering native backButton listener with @capacitor/app...");
+          listenerHandle = await CapApp.addListener("backButton", (data) => {
+            console.log("[BackNav] Hardware/gesture backButton event fired!", data);
+            handleBackStepRef.current();
+          });
+          console.log("[BackNav] Native backButton listener registered successfully.");
+        } else {
+          console.log("[BackNav] Running on web platform; native backButton listener skipped.");
+        }
+      } catch (err) {
+        console.error("[BackNav] Error setting up Capacitor backButton listener:", err);
+      }
+    };
+
+    setupBackListener();
+
+    return () => {
+      if (listenerHandle) {
+        console.log("[BackNav] Removing native backButton listener.");
+        listenerHandle.remove();
+      }
+    };
+  }, []);
+
+  // Web/PWA Browser PopState Listener
+  // Active ONLY on web/browser to avoid duplicate event triggers on Android
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      // On native Android, CapApp.addListener handles back navigation.
+      return;
+    }
+
+    if (typeof window !== "undefined" && !window.history.state) {
+      window.history.replaceState({ root: true }, "", "");
+    }
+
+    const handlePopState = () => {
+      console.log("[BackNav] Web browser popstate event fired.");
+      handleBackStepRef.current();
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -1248,22 +1456,7 @@ export default function App() {
   
 
   const renderInstallModal = () => null; 
-  
 
-  const [activeTab, setActiveTab] = useState(() => {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tab = urlParams.get('tab');
-      if (tab) return tab;
-    } catch (e) {}
-    
-    const saved = localStorage.getItem("vionex-current-user");
-    if (saved) {
-      const user = (saved === "undefined" ? undefined : safeJsonParse(saved));
-      if (user?.type === "farmer") return "schedule";
-    }
-    return "dashboard";
-  });
   const [locationCoords, setLocationCoords] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
@@ -1311,8 +1504,6 @@ export default function App() {
     };
   }, [activeTab]);
 
-  const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
@@ -1330,25 +1521,13 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    // Only track active tab changes in history if we are currently looking at the dashboard.
-    // If not, avoid pushing duplicate states over and over.
-    const currentState = window.history.state;
-    if (
-      view === "dashboard" &&
-      currentState &&
-      currentState.activeTab !== activeTab
-    ) {
-      window.history.pushState({ view, activeTab }, "");
-    }
-  }, [view, activeTab]);
-
   const handleAddCrop = (crop: Crop) => {
     saveItem("crops", crop);
     handleBack();
   };
 
   const handleGetAdvice = (crop: Crop) => {
+    pushCurrentStateToHistory();
     setSelectedCrop(crop);
     navigateTo("advice");
   };
@@ -1358,8 +1537,15 @@ export default function App() {
   };
 
   const handleNavClick = useCallback((id: string) => {
-    setActiveTab(id);
-    setView("dashboard");
+    if (id !== activeTab || view !== "dashboard") {
+      pushCurrentStateToHistory();
+      setActiveTab(id);
+      setView("dashboard");
+      setEditingFarmerIndex(null);
+      setEditingProductIndex(null);
+      setEditingScheduleIndex(null);
+      setPrefilledSchedule(null);
+    }
     setIsSidebarOpen(false);
 
     // Request notification permission asynchronously without blocking tab click
@@ -1370,7 +1556,7 @@ export default function App() {
         } catch (e) {}
       }, 500);
     }
-  }, []);
+  }, [activeTab, view, pushCurrentStateToHistory]);
 
   const isEn = language === "en";
 
@@ -3170,6 +3356,8 @@ export default function App() {
 
       {/* Interactive PWA Install Guide Modal */}
       {renderInstallModal()}
+
+
     </div>
   );
 }

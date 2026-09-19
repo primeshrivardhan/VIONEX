@@ -18,13 +18,17 @@ import {
   AlertTriangle,
   Wind,
   Check,
+  Search,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import SchedulePreviewModal from "./SchedulePreviewModal";
 import { saveItem } from "../lib/data-sync";
-import { translateDoseToEnglish, isScheduleForFarmer, translateCompositionToMarathi, translateMarathiToEnglish, formatDualDisplay, getDoseLabel, formatModeOfAction } from "../lib/utils";
+import { translateDoseToEnglish, isScheduleForFarmer, translateCompositionToMarathi, translateMarathiToEnglish, formatDualDisplay, getDoseLabel, formatModeOfAction, getCropPlotLabel } from "../lib/utils";
 import { UserPermissions } from "../types";
 import { HOSTING_URL } from "../lib/config";
+import { registerBackHandler } from "../lib/backNavigation";
 
 interface Product {
   brandName: string;
@@ -89,10 +93,69 @@ export default function ScheduleList({
     }
     return localStorage.getItem("schedule_list_selected_farmer") || "";
   });
-  const [selectedCrop, setSelectedCrop] = useState(() => {
-    return localStorage.getItem("schedule_list_selected_crop") || "";
+  const [selectedCropKey, setSelectedCropKey] = useState(() => {
+    return (
+      localStorage.getItem("schedule_list_selected_crop_key") ||
+      localStorage.getItem("schedule_list_selected_crop") ||
+      ""
+    );
   });
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+
+  // Back button handling: dismiss preview modal when open
+  useEffect(() => {
+    if (previewModalOpen) {
+      return registerBackHandler(() => {
+        setPreviewModalOpen(false);
+        return true;
+      });
+    }
+  }, [previewModalOpen]);
+
+  const [isFarmerDropdownOpen, setIsFarmerDropdownOpen] = useState(false);
+  const [farmerSearchQuery, setFarmerSearchQuery] = useState("");
+  const farmerDropdownRef = useRef<HTMLDivElement>(null);
+  const farmerSearchInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus search input when dropdown opens
+  useEffect(() => {
+    if (isFarmerDropdownOpen) {
+      const timer = setTimeout(() => {
+        farmerSearchInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setFarmerSearchQuery("");
+    }
+  }, [isFarmerDropdownOpen]);
+
+  // Back button handling: dismiss farmer dropdown when open
+  useEffect(() => {
+    if (isFarmerDropdownOpen) {
+      return registerBackHandler(() => {
+        setIsFarmerDropdownOpen(false);
+        return true;
+      });
+    }
+  }, [isFarmerDropdownOpen]);
+
+  // Click outside listener to close farmer dropdown
+  useEffect(() => {
+    if (!isFarmerDropdownOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        farmerDropdownRef.current &&
+        !farmerDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsFarmerDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isFarmerDropdownOpen]);
+
   const [inlineEdit, setInlineEdit] = useState<{
     scheduleId: string;
     pIdx: number;
@@ -110,12 +173,12 @@ export default function ScheduleList({
   }, [selectedFarmerId]);
 
   useEffect(() => {
-    if (selectedCrop) {
-      localStorage.setItem("schedule_list_selected_crop", selectedCrop);
+    if (selectedCropKey) {
+      localStorage.setItem("schedule_list_selected_crop_key", selectedCropKey);
     } else {
-      localStorage.removeItem("schedule_list_selected_crop");
+      localStorage.removeItem("schedule_list_selected_crop_key");
     }
-  }, [selectedCrop]);
+  }, [selectedCropKey]);
 
   const activeFarmer = useMemo(() => {
     return farmers.find(
@@ -123,21 +186,90 @@ export default function ScheduleList({
     );
   }, [farmers, selectedFarmerId]);
 
-  const cropsForSelectedFarmer = useMemo(() => {
+  const filteredFarmers = useMemo(() => {
+    const query = farmerSearchQuery.trim().toLowerCase();
+    if (!query) return farmers;
+    return farmers.filter((f) => {
+      const name = (f.name || "").toLowerCase();
+      const mobile = (f.mobile || "").toLowerCase();
+      const village = (f.village || "").toLowerCase();
+      return name.includes(query) || mobile.includes(query) || village.includes(query);
+    });
+  }, [farmers, farmerSearchQuery]);
+
+  const plotsForSelectedFarmer = useMemo(() => {
     if (!selectedFarmerId) return [];
     const selFarmer = farmers.find(
       (f) => f.mobile === selectedFarmerId || f.id === selectedFarmerId,
     );
-    const matchedSchedules = schedules.filter((s) => isScheduleForFarmer(s, selectedFarmerId, selFarmer));
-    const scheduleCrops = matchedSchedules
-      .map((s) => s.cropName)
-      .filter(Boolean);
-    const farmerMetaCrops =
-      selFarmer?.crops?.map((c: any) => c.crop).filter(Boolean) || [];
-    const allCrops = [...scheduleCrops, ...farmerMetaCrops];
-    const uniqueCrops = Array.from(new Set(allCrops.map((c) => c.trim())));
-    return uniqueCrops;
+    const matchedSchedules = schedules.filter((s) =>
+      isScheduleForFarmer(s, selectedFarmerId, selFarmer),
+    );
+
+    const plots: {
+      key: string;
+      cropId: string;
+      cropIndex: number;
+      cropName: string;
+      displayLabel: string;
+      rawCrop?: any;
+    }[] = [];
+
+    if (selFarmer?.crops && Array.isArray(selFarmer.crops) && selFarmer.crops.length > 0) {
+      selFarmer.crops.forEach((c: any, idx: number) => {
+        const cropId = c.id || String(idx);
+        const cropName = (c.crop || "नोंद नाही").trim();
+        const displayLabel = getCropPlotLabel(c, idx, selFarmer.crops);
+        const key = c.id ? `id_${c.id}` : `idx_${idx}_${cropName}`;
+
+        plots.push({
+          key,
+          cropId,
+          cropIndex: idx,
+          cropName,
+          displayLabel,
+          rawCrop: c,
+        });
+      });
+    }
+
+    // Include any schedules that had custom/orphan crops not in farmer.crops
+    matchedSchedules.forEach((s) => {
+      const sCropName = (s.cropName || "").trim();
+      const sCropId = s.cropId !== undefined && s.cropId !== null ? String(s.cropId).trim() : "";
+      if (!sCropName) return;
+
+      const alreadyCovered = plots.some(
+        (p) =>
+          (sCropId && (p.cropId === sCropId || String(p.cropIndex) === sCropId)) ||
+          p.cropName.toLowerCase() === sCropName.toLowerCase(),
+      );
+
+      if (!alreadyCovered) {
+        plots.push({
+          key: `orphan_${sCropId || sCropName}`,
+          cropId: sCropId || sCropName,
+          cropIndex: plots.length,
+          cropName: sCropName,
+          displayLabel: sCropName,
+        });
+      }
+    });
+
+    return plots;
   }, [schedules, selectedFarmerId, farmers]);
+
+  const activePlot = useMemo(() => {
+    if (!plotsForSelectedFarmer.length) return null;
+    return (
+      plotsForSelectedFarmer.find((p) => p.key === selectedCropKey) ||
+      plotsForSelectedFarmer.find((p) => p.cropId === selectedCropKey) ||
+      plotsForSelectedFarmer.find((p) => p.cropName === selectedCropKey) ||
+      plotsForSelectedFarmer[0]
+    );
+  }, [plotsForSelectedFarmer, selectedCropKey]);
+
+  const selectedCrop = activePlot?.cropName || "";
 
   useEffect(() => {
     // Auto-select farmer if it's farmer view and we have farmers
@@ -149,32 +281,39 @@ export default function ScheduleList({
   }, [isFarmerView, farmers]);
 
   useEffect(() => {
-    // Auto-select the first crop when a farmer is selected or crops change
-    if (selectedFarmerId && cropsForSelectedFarmer.length > 0) {
-      if (!selectedCrop || !cropsForSelectedFarmer.includes(selectedCrop)) {
-        // Find the crop that has schedules first, otherwise first crop
+    if (selectedFarmerId && plotsForSelectedFarmer.length > 0) {
+      const isKeyValid = plotsForSelectedFarmer.some(
+        (p) =>
+          p.key === selectedCropKey ||
+          p.cropId === selectedCropKey ||
+          p.cropName === selectedCropKey,
+      );
+      if (!selectedCropKey || !isKeyValid) {
         const selFarmer = farmers.find(
           (f) => f.mobile === selectedFarmerId || f.id === selectedFarmerId,
         );
-        const scheduleCrops = schedules
-          .filter((s) => isScheduleForFarmer(s, selectedFarmerId, selFarmer))
-          .map((s) => s.cropName);
-
-        const firstWithSchedule = cropsForSelectedFarmer.find((c) =>
-          scheduleCrops.includes(c),
+        const farmerSchedules = schedules.filter((s) =>
+          isScheduleForFarmer(s, selectedFarmerId, selFarmer),
         );
-        setSelectedCrop(firstWithSchedule || cropsForSelectedFarmer[0]);
+
+        const firstWithSchedule = plotsForSelectedFarmer.find((p) =>
+          farmerSchedules.some(
+            (s) =>
+              (s.cropId !== undefined &&
+                s.cropId !== null &&
+                (String(s.cropId).trim() === String(p.cropId).trim() ||
+                  String(s.cropId).trim() === String(p.cropIndex))) ||
+              (!s.cropId && s.cropName && s.cropName.trim() === p.cropName.trim()),
+          ),
+        );
+
+        const chosen = firstWithSchedule || plotsForSelectedFarmer[0];
+        setSelectedCropKey(chosen.key);
       }
     } else {
-      setSelectedCrop("");
+      setSelectedCropKey("");
     }
-  }, [
-    selectedFarmerId,
-    cropsForSelectedFarmer,
-    selectedCrop,
-    schedules,
-    farmers,
-  ]);
+  }, [selectedFarmerId, plotsForSelectedFarmer, selectedCropKey, schedules, farmers]);
 
   const getMarathiDayOfWeek = (dateStr: string) => {
     try {
@@ -260,8 +399,9 @@ export default function ScheduleList({
   };
 
   const activeCropMeta = useMemo(() => {
-    return activeFarmer?.crops?.find((c: any) => c.crop === selectedCrop);
-  }, [activeFarmer, selectedCrop]);
+    if (activePlot?.rawCrop) return activePlot.rawCrop;
+    return activeFarmer?.crops?.[activePlot?.cropIndex || 0];
+  }, [activeFarmer, activePlot]);
 
   const filteredSchedules = useMemo(() => {
     return schedules.filter((s) => {
@@ -273,7 +413,31 @@ export default function ScheduleList({
           return false;
         }
       }
-      if (selectedCrop && s.cropName !== selectedCrop) return false;
+
+      if (activePlot) {
+        const sCropId =
+          s.cropId !== undefined && s.cropId !== null ? String(s.cropId).trim() : "";
+        const targetPlotId = String(activePlot.cropId || "").trim();
+        const targetIndexStr = String(activePlot.cropIndex);
+
+        if (sCropId !== "") {
+          const matchId = sCropId === targetPlotId || sCropId === targetIndexStr;
+          if (!matchId) return false;
+        } else {
+          // Legacy schedule without cropId: match by cropName
+          const sCropName = (s.cropName || "").trim().toLowerCase();
+          const targetCropName = (activePlot.cropName || "").trim().toLowerCase();
+          if (sCropName !== targetCropName) return false;
+
+          // If farmer has multiple plots of same crop, legacy schedules default to plot 0
+          const sameCrops = activeFarmer?.crops?.filter(
+            (c: any) => (c.crop || "").trim().toLowerCase() === targetCropName,
+          );
+          if (sameCrops && sameCrops.length > 1 && activePlot.cropIndex !== 0) {
+            return false;
+          }
+        }
+      }
 
       // Check target farmer settings for both Farmer and User if activeFarmer is matched
       if (activeFarmer) {
@@ -287,8 +451,7 @@ export default function ScheduleList({
   }, [
     schedules,
     selectedFarmerId,
-    selectedCrop,
-    isFarmerView,
+    activePlot,
     activeFarmer,
     farmers,
   ]);
@@ -362,17 +525,11 @@ export default function ScheduleList({
         : 0;
     const nextDay = isNaN(lastDayNum) ? 1 : lastDayNum + 3;
 
-    let cropIndex = 0;
-    if (activeFarmer?.crops) {
-      const idx = activeFarmer.crops.findIndex(
-        (c: any) => c.crop === selectedCrop,
-      );
-      if (idx !== -1) cropIndex = idx;
-    }
     onAddSchedule({
       farmerId: selectedFarmerId,
-      selectedCropIndex: cropIndex,
-      cropName: selectedCrop,
+      selectedCropIndex: activePlot ? activePlot.cropIndex : 0,
+      cropId: activePlot ? (activePlot.cropId || String(activePlot.cropIndex)) : "0",
+      cropName: activePlot ? activePlot.cropName : "",
       day: nextDay.toString(),
     });
   };
@@ -396,7 +553,7 @@ export default function ScheduleList({
 
     let text = `🌿 *VIONEX वेळापत्रक नियोजन* 🌿\n`;
     text += `*शेतकरी:* ${farmerName}\n`;
-    text += `*पीक:* ${selectedCrop}\n`;
+    text += `*पीक / प्लॉट:* ${activePlot?.displayLabel || selectedCrop}\n`;
     if (activeCropMeta?.variety) text += `*वाण:* ${activeCropMeta.variety}\n`;
     if (plantationDate)
       text += `*तारीख:* ${safeFormatDate(plantationDate)}\n`;
@@ -559,25 +716,154 @@ export default function ScheduleList({
       {/* Top Controls: Compact Header Row */}
       {!isFarmerView && (
         <div
-          className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-10 shadow-sm"
+          className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-30 shadow-sm"
           id="filters-compact-row"
         >
-          <select
-            value={selectedFarmerId}
-            onChange={(e) => {
-              setSelectedFarmerId(e.target.value);
-              setSelectedCrop("");
-            }}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-3 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500 font-sans"
-            id="select-farmer-filter"
-          >
-            <option value="">-- शेतकरी निवडा (Select Farmer) --</option>
-            {farmers.map((f, idx) => (
-              <option key={f.id || f.mobile || idx} value={f.id || f.mobile}>
-                {f.name} - {f.mobile}
-              </option>
-            ))}
-          </select>
+          <div className="relative" ref={farmerDropdownRef}>
+            {/* Custom Combobox Trigger Button */}
+            <button
+              type="button"
+              id="select-farmer-filter"
+              onClick={() => setIsFarmerDropdownOpen((prev) => !prev)}
+              className={`w-full flex items-center justify-between bg-slate-50 border rounded-lg py-2.5 px-3 text-xs font-bold font-sans transition-all ${
+                isFarmerDropdownOpen
+                  ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-white"
+                  : "border-slate-200 text-slate-800 hover:border-slate-300"
+              }`}
+              aria-haspopup="listbox"
+              aria-expanded={isFarmerDropdownOpen}
+            >
+              <div className="flex items-center gap-2 truncate text-left mr-2">
+                <User className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span className="truncate">
+                  {activeFarmer
+                    ? `${activeFarmer.name} - ${activeFarmer.mobile}`
+                    : "-- शेतकरी निवडा (Select Farmer) --"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {selectedFarmerId && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFarmerId("");
+                      setSelectedCropKey("");
+                      setIsFarmerDropdownOpen(false);
+                    }}
+                    className="p-1 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                    title="निवड रद्द करा (Clear)"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                )}
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                    isFarmerDropdownOpen ? "rotate-180 text-emerald-600" : ""
+                  }`}
+                />
+              </div>
+            </button>
+
+            {/* Dropdown Floating Panel */}
+            {isFarmerDropdownOpen && (
+              <div
+                className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col"
+                style={{ maxHeight: "55vh" }}
+              >
+                {/* Search Box at the TOP */}
+                <div className="p-2 border-b border-slate-100 bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10">
+                  <div className="relative flex items-center">
+                    <Search className="absolute left-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <input
+                      ref={farmerSearchInputRef}
+                      type="text"
+                      value={farmerSearchQuery}
+                      onChange={(e) => setFarmerSearchQuery(e.target.value)}
+                      placeholder="नाव किंवा मोबाईल नंबर शोधा..."
+                      className="w-full pl-8 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    />
+                    {farmerSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setFarmerSearchQuery("")}
+                        className="absolute right-2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Scrollable Options List */}
+                <div className="overflow-y-auto overscroll-contain divide-y divide-slate-100">
+                  {/* Default / Clear selection option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFarmerId("");
+                      setSelectedCropKey("");
+                      setIsFarmerDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 flex items-center justify-between text-xs font-semibold hover:bg-slate-50 transition-colors ${
+                      !selectedFarmerId
+                        ? "bg-emerald-50/80 text-emerald-800 font-bold"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    <span className="truncate">-- शेतकरी निवडा (Select Farmer) --</span>
+                    {!selectedFarmerId && (
+                      <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 ml-1" />
+                    )}
+                  </button>
+
+                  {/* Filtered Farmer List */}
+                  {filteredFarmers.length > 0 ? (
+                    filteredFarmers.map((f, idx) => {
+                      const fId = f.id || f.mobile;
+                      const isSelected = selectedFarmerId === fId;
+                      return (
+                        <button
+                          key={fId || idx}
+                          type="button"
+                          onClick={() => {
+                            setSelectedFarmerId(fId);
+                            setSelectedCropKey("");
+                            setIsFarmerDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 flex items-center justify-between hover:bg-emerald-50/60 transition-colors ${
+                            isSelected
+                              ? "bg-emerald-50 text-emerald-900 font-bold"
+                              : "text-slate-800"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="text-xs font-bold truncate">
+                              {f.name}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-normal truncate mt-0.5">
+                              📱 {f.mobile} {f.village ? `• 📍 ${f.village}` : ""}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 ml-1" />
+                          )}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="py-6 px-4 text-center">
+                      <p className="text-xs font-semibold text-slate-600">
+                        कोणताही शेतकरी सापडला नाही
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        (No farmer found for "{farmerSearchQuery}")
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -620,7 +906,14 @@ export default function ScheduleList({
                 {/* Action Buttons Row */}
                 <div className="flex justify-between items-center bg-slate-50 border border-slate-100 rounded-xl p-1 mt-2">
                   <button
-                    onClick={() => onAddSchedule()}
+                    onClick={() =>
+                      onAddSchedule({
+                        farmerId: selectedFarmerId,
+                        selectedCropIndex: activePlot ? activePlot.cropIndex : 0,
+                        cropId: activePlot ? (activePlot.cropId || String(activePlot.cropIndex)) : "0",
+                        cropName: activePlot ? activePlot.cropName : "",
+                      })
+                    }
                     className="flex-1 py-1.5 flex justify-center items-center text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
                     title="शेड्युल जोडा"
                   >
@@ -683,17 +976,17 @@ export default function ScheduleList({
                 {isFarmerView ? "तुमचे पीक निवडा" : "पीक निवडा (Select Crop)"}
               </p>
               <div className="flex flex-wrap gap-1.5 px-0.5">
-                {cropsForSelectedFarmer.map((crop) => (
+                {plotsForSelectedFarmer.map((plot) => (
                   <button
-                    key={crop}
-                    onClick={() => setSelectedCrop(crop)}
+                    key={plot.key}
+                    onClick={() => setSelectedCropKey(plot.key)}
                     className={`rounded-lg font-bold transition-all border px-2.5 py-1 text-[10px] ${
-                      selectedCrop === crop
+                      activePlot?.key === plot.key
                         ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
                         : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                     }`}
                   >
-                    {crop}
+                    {plot.displayLabel}
                   </button>
                 ))}
               </div>
@@ -709,7 +1002,7 @@ export default function ScheduleList({
         )}
 
         {/* Schedule Cards Section */}
-        {selectedFarmerId && selectedCrop && (
+        {selectedFarmerId && activePlot && (
           <div className="space-y-4 pt-4 pb-12">
             {listItems.length > 0 ? (
               <>
@@ -1168,7 +1461,7 @@ export default function ScheduleList({
         <SchedulePreviewModal
           schedules={sortedSchedules}
           farmer={activeFarmer}
-          cropName={selectedCrop}
+          cropName={activePlot?.displayLabel || selectedCrop}
           cropMeta={activeCropMeta}
           onClose={() => setPreviewModalOpen(false)}
         />

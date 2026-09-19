@@ -333,9 +333,19 @@ export default function AddFarmerForm({
 
   const [crops, setCrops] = useState(
     initialData?.crops?.length > 0
-      ? initialData.crops
+      ? initialData.crops.map((c: any, i: number) => ({
+          id: c.id || `crop_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+          plotName: c.plotName || "",
+          crop: c.crop || "",
+          variety: c.variety || "",
+          season: c.season || "खरीप (जून ते ऑक्टोबर)",
+          area: c.area || "",
+          plantationDate: c.plantationDate || "",
+        }))
       : [
           {
+            id: `crop_${Date.now()}_0_${Math.random().toString(36).substring(2, 6)}`,
+            plotName: "",
             crop: "",
             variety: "",
             season: "खरीप (जून ते ऑक्टोबर)",
@@ -349,6 +359,8 @@ export default function AddFarmerForm({
     setCrops([
       ...crops,
       {
+        id: `crop_${Date.now()}_${crops.length}_${Math.random().toString(36).substring(2, 6)}`,
+        plotName: "",
         crop: "",
         variety: "",
         season: "खरीप (जून ते ऑक्टोबर)",
@@ -375,6 +387,8 @@ export default function AddFarmerForm({
     const newCrops = crops.filter((_, i) => i !== index);
     if (newCrops.length === 0) {
       newCrops.push({
+        id: `crop_${Date.now()}_0_${Math.random().toString(36).substring(2, 6)}`,
+        plotName: "",
         crop: "",
         variety: "",
         season: "खरीप (जून ते ऑक्टोबर)",
@@ -1110,19 +1124,28 @@ export default function AddFarmerForm({
               </select>
               <input
                 type="text"
-                placeholder="वाण / व्हरायटी"
-                list={`variety-options-${index}`}
+                placeholder="प्लॉटचे नाव (ऐच्छिक उदा. प्लॉट १)"
                 className="w-full px-2 py-2 rounded border border-slate-200 text-xs bg-white focus:ring-1 focus:ring-emerald-500 outline-none"
-                value={cropEntry.variety}
-                onChange={(e) => updateCrop(index, "variety", e.target.value)}
+                value={cropEntry.plotName || ""}
+                onChange={(e) => updateCrop(index, "plotName", e.target.value)}
               />
-              <datalist id={`variety-options-${index}`}>
-                {(cropVarieties[cropEntry.crop] || []).map((v, i) => (
-                  <option key={i} value={v} />
-                ))}
-              </datalist>
             </div>
             <div className="grid grid-cols-2 gap-2">
+              <div>
+                <input
+                  type="text"
+                  placeholder="वाण / व्हरायटी"
+                  list={`variety-options-${index}`}
+                  className="w-full px-2 py-2 rounded border border-slate-200 text-xs bg-white focus:ring-1 focus:ring-emerald-500 outline-none"
+                  value={cropEntry.variety}
+                  onChange={(e) => updateCrop(index, "variety", e.target.value)}
+                />
+                <datalist id={`variety-options-${index}`}>
+                  {(cropVarieties[cropEntry.crop] || []).map((v, i) => (
+                    <option key={i} value={v} />
+                  ))}
+                </datalist>
+              </div>
               <select
                 className="w-full px-1 py-2 rounded border border-slate-200 text-[10px] font-bold bg-white focus:ring-1 focus:ring-emerald-500 outline-none"
                 value={cropEntry.season}
@@ -1134,6 +1157,8 @@ export default function AddFarmerForm({
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <input
                 type="text"
                 placeholder="क्षेत्र (एकर)"
@@ -1141,18 +1166,18 @@ export default function AddFarmerForm({
                 value={cropEntry.area}
                 onChange={(e) => updateCrop(index, "area", e.target.value)}
               />
-            </div>
-            <div className="flex items-center w-full px-2 py-1.5 rounded border border-slate-200 bg-white focus-within:ring-1 focus-within:ring-emerald-500">
-              <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap mr-2">
-                लागवड / छाटणी तारीख:
-              </span>
-              <div className="flex-1">
-                <DatePicker
-                  value={cropEntry.plantationDate}
-                  onChange={(date) => updateCrop(index, "plantationDate", date)}
-                  className="border-none hover:bg-transparent px-0 py-0 text-slate-700 bg-transparent flex flex-row-reverse justify-end gap-2"
-                  placeholder="तारीख..."
-                />
+              <div className="flex items-center w-full px-2 py-1.5 rounded border border-slate-200 bg-white focus-within:ring-1 focus-within:ring-emerald-500">
+                <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap mr-1.5">
+                  लागवड/छाटणी:
+                </span>
+                <div className="flex-1">
+                  <DatePicker
+                    value={cropEntry.plantationDate}
+                    onChange={(date) => updateCrop(index, "plantationDate", date)}
+                    className="border-none hover:bg-transparent px-0 py-0 text-slate-700 bg-transparent flex flex-row-reverse justify-end gap-1.5"
+                    placeholder="तारीख..."
+                  />
+                </div>
               </div>
             </div>
           </div>

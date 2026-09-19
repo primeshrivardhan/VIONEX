@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   Mic,
 } from "lucide-react";
-import { translateCompositionToMarathi, translateDoseToEnglish, isScheduleForFarmer, translateMarathiToEnglish } from "../lib/utils";
+import { translateCompositionToMarathi, translateDoseToEnglish, isScheduleForFarmer, translateMarathiToEnglish, getCropPlotLabel } from "../lib/utils";
 import { PRESEEDED_PRODUCTS } from "../lib/preseeded-products";
 import DatePicker from "./DatePicker";
 
@@ -66,6 +66,10 @@ export default function AddScheduleForm({
       initialData?.selectedCropIndex !== undefined
          ? String(initialData.selectedCropIndex)
          : "",
+    cropId:
+      initialData?.cropId !== undefined && initialData?.cropId !== null
+        ? String(initialData.cropId)
+        : (initialData?.selectedCropIndex !== undefined ? String(initialData.selectedCropIndex) : ""),
     cropName: initialData?.cropName || "",
     season: initialData?.season || "",
     day: initialData?.day || "",
@@ -282,8 +286,10 @@ export default function AddScheduleForm({
   const handleSelectFarmer = (farmer: any) => {
     // Select first crop by default if available
     const firstCropIndex = farmer.crops && farmer.crops.length > 0 ? "0" : "";
-    const firstCropName = firstCropIndex !== "" ? farmer.crops[0].crop : "";
-    const firstCropSeason = firstCropIndex !== "" ? farmer.crops[0].season : "";
+    const firstCrop = farmer.crops && farmer.crops.length > 0 ? farmer.crops[0] : null;
+    const firstCropName = firstCrop ? firstCrop.crop : "";
+    const firstCropSeason = firstCrop ? firstCrop.season : "";
+    const firstCropId = firstCrop ? (firstCrop.id || "0") : "";
     const schedDate = formData.scheduleDate || getLocalTodayString();
 
     // Try finding by ID first, then fallback to mobile
@@ -294,6 +300,7 @@ export default function AddScheduleForm({
       ...formData,
       farmerId: farmerIdent,
       selectedCropIndex: firstCropIndex,
+      cropId: firstCropId,
       cropName: firstCropName,
       season: firstCropSeason,
       day: computedDay !== "" ? computedDay : formData.day || "",
@@ -335,6 +342,7 @@ export default function AddScheduleForm({
       setFormData({
         ...formData,
         selectedCropIndex: indexStr,
+        cropId: chosenCrop.id || indexStr,
         cropName: chosenCrop.crop || "",
         season: chosenCrop.season || "",
         day: computedDay !== "" ? computedDay : formData.day || "",
@@ -343,6 +351,7 @@ export default function AddScheduleForm({
       setFormData({
         ...formData,
         selectedCropIndex: "",
+        cropId: "",
         cropName: "",
         season: "",
       });
@@ -414,9 +423,16 @@ export default function AddScheduleForm({
       const matchesFarmer = isScheduleForFarmer(s, formData.farmerId, selectedFarmer);
       const isSameDate = s.scheduleDate === formData.scheduleDate;
       const isNotCurrent = String(s.id) !== String(initialData?.id || "");
-      const isSameCrop = formData.selectedCropIndex 
-        ? String(s.cropId || "").trim() === String(formData.selectedCropIndex).trim()
-        : String(s.cropName || "").trim() === String(formData.cropName || "").trim();
+      
+      let isSameCrop = false;
+      const targetCropId = formData.cropId || formData.selectedCropIndex;
+      if (s.cropId !== undefined && s.cropId !== null && targetCropId !== undefined && targetCropId !== null) {
+        isSameCrop = String(s.cropId).trim() === String(targetCropId).trim() ||
+                     (selectedFarmer?.crops?.[parseInt(formData.selectedCropIndex, 10)]?.id &&
+                      String(s.cropId).trim() === String(selectedFarmer.crops[parseInt(formData.selectedCropIndex, 10)].id).trim());
+      } else {
+        isSameCrop = String(s.cropName || "").trim() === String(formData.cropName || "").trim();
+      }
 
       if (!matchesFarmer || !isSameDate || !isNotCurrent || !isSameCrop) return false;
 
@@ -434,7 +450,7 @@ export default function AddScheduleForm({
       }
       return false;
     });
-  }, [formData.farmerId, formData.scheduleDate, formData.method, formData.otherMethod, formData.cropName, schedules, initialData, selectedFarmer]);
+  }, [formData.farmerId, formData.scheduleDate, formData.method, formData.otherMethod, formData.cropName, formData.cropId, formData.selectedCropIndex, schedules, initialData, selectedFarmer]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -446,9 +462,13 @@ export default function AddScheduleForm({
       alert(`या दिवशी ${formData.method} पद्धतीने आधीच शेड्युल तयार केले आहे! कृपया दुसरी तारीख किंवा पद्धत निवडा.`);
       return;
     }
+
+    const chosenCrop = selectedFarmer?.crops?.[parseInt(formData.selectedCropIndex, 10)];
+    const finalCropId = formData.cropId || chosenCrop?.id || formData.selectedCropIndex || "0";
+
     onSave({
       ...formData,
-      cropId: formData.selectedCropIndex,
+      cropId: finalCropId,
       id: initialData?.id || Date.now().toString(),
     });
 
@@ -489,6 +509,27 @@ export default function AddScheduleForm({
       if (f) setFarmerSearch(f.name);
     }
   }, [initialData, farmers]);
+
+  // Sync selectedCropIndex if initialData has cropId
+  useEffect(() => {
+    if (selectedFarmer?.crops && selectedFarmer.crops.length > 0 && initialData) {
+      const targetCropId = initialData.cropId ?? initialData.selectedCropIndex;
+      if (targetCropId !== undefined && targetCropId !== null && String(targetCropId).trim() !== "") {
+        const foundIdx = selectedFarmer.crops.findIndex(
+          (c: any, i: number) => (c.id && String(c.id) === String(targetCropId)) || String(i) === String(targetCropId)
+        );
+        if (foundIdx !== -1) {
+          setFormData((prev) => ({
+            ...prev,
+            selectedCropIndex: String(foundIdx),
+            cropId: String(targetCropId),
+            cropName: selectedFarmer.crops[foundIdx].crop || prev.cropName,
+            season: selectedFarmer.crops[foundIdx].season || prev.season,
+          }));
+        }
+      }
+    }
+  }, [initialData, selectedFarmer]);
 
   return (
     <div className="w-full h-full bg-white flex flex-col relative z-40 overflow-hidden">
@@ -629,8 +670,8 @@ export default function AddScheduleForm({
                       className="w-full px-2 py-1.5 rounded border border-slate-200 text-xs focus:ring-1 focus:ring-emerald-500 outline-none bg-white"
                     >
                       {selectedFarmer.crops.map((cr: any, idx: number) => (
-                        <option key={idx} value={idx}>
-                          {cr.crop} {cr.variety ? `(${cr.variety})` : ""}
+                        <option key={cr.id || idx} value={idx}>
+                          {getCropPlotLabel(cr, idx, selectedFarmer.crops)}
                         </option>
                       ))}
                     </select>

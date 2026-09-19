@@ -51,6 +51,16 @@ export interface UserPermissions {
   diseaseId?: boolean;
 }
 
+export interface FarmerCropEntry {
+  id?: string; // Unique identifier for plot / planting
+  plotName?: string; // Optional custom plot name (e.g. प्लॉट १ / घरचा मळा)
+  crop: string;
+  variety: string;
+  season: string;
+  area: string;
+  plantationDate: string;
+}
+
 export interface Farmer {
   id: string;
   name: string;
@@ -65,13 +75,7 @@ export interface Farmer {
   lon?: number;
   village: string;
   villageCode?: string; // Standardized village code for robust mapping
-  crops: {
-    crop: string;
-    variety: string;
-    season: string;
-    area: string;
-    plantationDate: string;
-  }[];
+  crops: FarmerCropEntry[];
   dealer?: string;
   alternateMobile?: string;
   paidStatus?: 'paid' | 'unpaid';
