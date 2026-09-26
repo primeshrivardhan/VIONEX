@@ -321,6 +321,33 @@ cd android
 
 ---
 
+## 👥 Contributors
+
+Thanks to these amazing people who built VIONEX:
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Maruti0208">
+        <img src="https://avatars.githubusercontent.com/u/Maruti0208?v=4" width="100px;" alt="Maruti Sarjerao Gaikwad"/><br />
+        <sub><b>Maruti Sarjerao Gaikwad</b></sub>
+      </a><br />
+      <a href="https://github.com/Maruti0208/VIONEX/commits?author=Maruti0208">💻</a>
+      <a href="https://github.com/Maruti0208/VIONEX">🚀</a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/shrenika2">
+        <img src="https://avatars.githubusercontent.com/u/shrenika2?v=4" width="100px;" alt="Shrenik Patil"/><br />
+        <sub><b>Shrenik Patil</b></sub>
+      </a><br />
+      <a href="https://github.com/Maruti0208/VIONEX/commits?author=shrenika2">💻</a>
+      <a href="https://github.com/Maruti0208/VIONEX">🏗️</a>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📄 License & Attribution
 
 Distributed under the **MIT License**. Engineered with pride for Indian agriculture.
