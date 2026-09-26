@@ -517,11 +517,15 @@ export default function App() {
           setFarmers(data);
           updateSyncTime();
         });
-      } else if (isFarmer && currentUserId) {
+      } else if (isFarmer && currentUser?.data?.mobile) {
+        // Query by "mobile" field — a real Firestore field that exists in the document body.
+        // "id" is NOT a Firestore field; it is added client-side by syncCollection from doc.id,
+        // so querying where("id", "==", ...) always returns 0 results.
+        const farmerMobile = String(currentUser.data.mobile).trim();
         unsubFarmers = syncCollection<any>("farmers", (data) => {
           setFarmers(data || []);
           updateSyncTime();
-        }, { where: ["id", "==", currentUserId] });
+        }, { where: ["mobile", "==", farmerMobile] });
       } else if (currentUserId) {
         unsubFarmers = syncCollection<any>("farmers", (data) => {
           setFarmers(data || []);
@@ -538,12 +542,21 @@ export default function App() {
           updateSyncTime();
         });
       } else if (isFarmer && currentUserId) {
-        // Find the farmer's mobile number to include in the query
-        const mobile = currentUser?.data?.mobile ? String(currentUser.data.mobile).slice(-10) : "";
-        const possibleIds = [currentUserId];
-        if (mobile) {
-          possibleIds.push(mobile, `+91${mobile}`, `91${mobile}`);
-        }
+        // Build all possible farmerId values the admin may have stored when creating this farmer's schedule.
+        // Admin UI stores farmerId = farmer.id (the Firestore doc ID, e.g. "farmer-1789xxxxx") as the primary key,
+        // with mobile number as a fallback for older records.
+        const rawMobile = currentUser?.data?.mobile ? String(currentUser.data.mobile).trim() : "";
+        const cleanMob = rawMobile.replace(/\D/g, "");
+        const mob10 = cleanMob.slice(-10);
+        const possibleIds = Array.from(new Set([
+          currentUserId,          // farmer.id — primary ("farmer-1789xxxxx-xxxxx")
+          rawMobile,              // raw mobile as stored
+          cleanMob,              // digits only
+          mob10,                 // last 10 digits
+          mob10 ? `91${mob10}` : "",
+          mob10 ? `+91${mob10}` : "",
+          mob10 ? `0${mob10}` : "",
+        ].filter(Boolean))).map(id => String(id).trim());
         
         unsubSchedules = syncCollection<any>("schedules", (data) => {
           setSchedules(data || []);
@@ -1930,9 +1943,10 @@ export default function App() {
       if (matchedFarmer.password && matchedFarmer.password !== cleanPass) {
         return "wrong_password";
       }
-      const approvedFarmer = { ...matchedFarmer };
-      await saveItem("farmers", approvedFarmer, matchedFarmer.id);
-      setCurrentUser({ type: "farmer", data: approvedFarmer });
+      // Do NOT saveItem here — farmers cannot update their own doc (Firestore rules block it),
+      // and attempting it triggers a permission-denied error that activates the circuit breaker,
+      // causing the subsequent schedule subscription to return an empty cache instead of live data.
+      setCurrentUser({ type: "farmer", data: { ...matchedFarmer } });
       setActiveTab("schedule");
       return "success";
     }
