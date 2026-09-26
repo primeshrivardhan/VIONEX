@@ -257,7 +257,7 @@ VIONEX/
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/shrenika2/VIONEX.git
+git clone https://github.com/Maruti0208/VIONEX.git
 cd VIONEX
 npm install
 ```
@@ -325,5 +325,5 @@ cd android
 
 Distributed under the **MIT License**. Engineered with pride for Indian agriculture.
 
-**Developed by [Shrenik](https://github.com/shrenika2)**  
-*For questions, architectural discussions, or collaboration: [GitHub Profile](https://github.com/shrenika2)*
+**Developed by [Maruti](https://github.com/Maruti0208)**  
+*For questions, architectural discussions, or collaboration: [GitHub Profile](https://github.com/Maruti0208)*
