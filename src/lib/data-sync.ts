@@ -114,13 +114,13 @@ export async function saveItem(collectionName: string, item: any, id?: string) {
       // Don't await directly if we want offline-first instant return.
       // Firestore will queue this write.
       setDoc(docRef, data, { merge: true }).catch(err => {
-        console.warn(`Firestore background write failed for ${collectionName}:`, err);
+        console.error(`[data-sync] Firestore background write rejected for ${collectionName}/${id}:`, err);
       });
       return id;
     } else {
       const docRef = doc(collection(db, collectionName));
       setDoc(docRef, { ...data, createdAt: serverTimestamp() }).catch(err => {
-        console.warn(`Firestore background write failed for ${collectionName}:`, err);
+        console.error(`[data-sync] Firestore background write rejected for ${collectionName}:`, err);
       });
       return docRef.id;
     }

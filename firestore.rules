@@ -103,10 +103,40 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    function isFarmerScheduleOwner() {
+      return isSignedIn() && 
+        getUserMapping() != null && 
+        (
+          (
+            'farmerId' in resource.data && resource.data.farmerId != null && (
+              ( 'farmerId' in getUserMapping() && getUserMapping().farmerId != null && resource.data.farmerId == getUserMapping().farmerId ) ||
+              ( 'mobile' in getUserMapping() && getUserMapping().mobile != null && resource.data.farmerId == getUserMapping().mobile ) ||
+              ( 'possibleIds' in getUserMapping() && getUserMapping().possibleIds != null && getUserMapping().possibleIds.hasAny([resource.data.farmerId]) )
+            )
+          ) ||
+          (
+            'farmerMobile' in resource.data && resource.data.farmerMobile != null &&
+            'mobile' in getUserMapping() && getUserMapping().mobile != null &&
+            resource.data.farmerMobile == getUserMapping().mobile
+          )
+        );
+    }
+
+    function isOnlyMarkingScheduleDone() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneAt', 'status', 'updatedAt']);
+    }
+
     match /schedules/{scheduleId} {
       allow read: if !isRestrictedDemoUser();
       allow create: if isAdmin() || isConsultant();
-      allow update: if isAdmin() || (isConsultant() && resource.data.createdBy == request.auth.uid);
+      allow update: if isAdmin() || 
+                      (isConsultant() && resource.data.createdBy == request.auth.uid) ||
+                      (
+                        isSignedIn() && 
+                        !isRestrictedDemoUser() && 
+                        isFarmerScheduleOwner() && 
+                        isOnlyMarkingScheduleDone()
+                      );
       allow delete: if isAdmin();
     }
 

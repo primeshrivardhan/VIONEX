@@ -25,6 +25,8 @@ import {
 import { format, parseISO } from "date-fns";
 import SchedulePreviewModal from "./SchedulePreviewModal";
 import { saveItem } from "../lib/data-sync";
+import { auth, db } from "../lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { translateDoseToEnglish, isScheduleForFarmer, translateCompositionToMarathi, translateMarathiToEnglish, formatDualDisplay, getDoseLabel, formatModeOfAction, getCropPlotLabel } from "../lib/utils";
 import { UserPermissions } from "../types";
 import { HOSTING_URL } from "../lib/config";
@@ -101,6 +103,26 @@ export default function ScheduleList({
     );
   });
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+
+  // Instant 0-second optimistic Done toggles map: scheduleId -> { done: boolean, doneAt: string | null }
+  const [optimisticDoneMap, setOptimisticDoneMap] = useState<Record<string, { done: boolean; doneAt: string | null }>>({});
+
+  // Clean up optimistic overrides once the live Firestore subscription emits matching state
+  useEffect(() => {
+    if (Object.keys(optimisticDoneMap).length === 0) return;
+    setOptimisticDoneMap((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [id, opt] of Object.entries(prev)) {
+        const found = schedules.find((s) => s.id === id);
+        if (found && !!found.done === opt.done) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [schedules, optimisticDoneMap]);
 
   // Back button handling: dismiss preview modal when open
   useEffect(() => {
@@ -441,7 +463,10 @@ export default function ScheduleList({
 
       // Check target farmer settings for both Farmer and User if activeFarmer is matched
       if (activeFarmer) {
-        if (activeFarmer.hideDoneSchedules && s.done === true) {
+        const isDoneEffective = s.id && optimisticDoneMap[s.id] !== undefined
+          ? optimisticDoneMap[s.id].done
+          : s.done === true;
+        if (activeFarmer.hideDoneSchedules && isDoneEffective) {
           return false;
         }
       }
@@ -454,6 +479,7 @@ export default function ScheduleList({
     activePlot,
     activeFarmer,
     farmers,
+    optimisticDoneMap,
   ]);
 
   const sortedSchedules = useMemo(() => {
@@ -1051,11 +1077,19 @@ export default function ScheduleList({
                           (s) => s === schedule,
                         );
                         const engMethod = getEnglishMethod(schedule.method);
+                        const isDoneActual = schedule.id && optimisticDoneMap[schedule.id] !== undefined
+                          ? optimisticDoneMap[schedule.id].done
+                          : !!schedule.done;
+                        const doneAtActual = schedule.id && optimisticDoneMap[schedule.id] !== undefined
+                          ? optimisticDoneMap[schedule.id].doneAt
+                          : schedule.doneAt;
 
                         return (
                           <div
                             key={`${schedule.cropId || 'no-crop'}-${schedule.id || sIdx}`}
-                            className="p-3 sm:p-4 space-y-3 animate-in fade-in duration-200"
+                            className={`p-3 sm:p-4 space-y-3 animate-in fade-in duration-200 transition-colors ${
+                              isDoneActual ? "bg-emerald-50/20" : ""
+                            }`}
                           >
                             {/* Single Line Header: Day, Date, Day Name, Method, Done, Edit, Delete */}
                             <div className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2">
@@ -1101,11 +1135,11 @@ export default function ScheduleList({
                                             : `🌱 फवारणी`}
                                 </span>
 
-                                {!isFarmerView && schedule.done && (
+                                {isDoneActual && (
                                   <span
                                     className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-600 text-white shadow-xs shrink-0"
                                   >
-                                    ✓ {getDoneDisplay(schedule.doneAt)}
+                                    ✓ {getDoneDisplay(doneAtActual || undefined)}
                                   </span>
                                 )}
                               </div>
@@ -1118,28 +1152,69 @@ export default function ScheduleList({
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       if (schedule.id) {
-                                        const isDone = !!schedule.done;
+                                        const isDone = isDoneActual;
                                         const doneAtVal = isDone
                                           ? null
                                           : new Date().toISOString();
+
+                                        console.log(`[ScheduleDone] Clicked DONE for schedule ${schedule.id}: currentDone=${isDone}, nextDone=${!isDone}, doneAt=${doneAtVal}`);
+
+                                        // 1. Instant 0-second optimistic update
+                                        setOptimisticDoneMap((prev) => ({
+                                          ...prev,
+                                          [schedule.id!]: { done: !isDone, doneAt: doneAtVal },
+                                        }));
+
+                                        // 2. Defensive check: ensure farmer user_mapping is synced in Firestore
+                                        if (isFarmerView && auth?.currentUser && activeFarmer && db) {
+                                          const rawMobile = String(activeFarmer.mobile || "").trim();
+                                          const cleanMob = rawMobile.replace(/\D/g, "");
+                                          const mob10 = cleanMob.slice(-10);
+                                          const possibleIds = Array.from(new Set([
+                                            activeFarmer.id,
+                                            rawMobile,
+                                            cleanMob,
+                                            mob10,
+                                            mob10 ? `91${mob10}` : "",
+                                            mob10 ? `+91${mob10}` : "",
+                                            mob10 ? `0${mob10}` : "",
+                                          ].filter(Boolean))).map(id => String(id).trim());
+
+                                          setDoc(doc(db, "user_mappings", auth.currentUser.uid), {
+                                            farmerId: activeFarmer.id,
+                                            mobile: activeFarmer.mobile || "",
+                                            possibleIds,
+                                            role: "farmer",
+                                            loginId: rawMobile,
+                                          }, { merge: true }).catch((err) => console.warn("[ScheduleDone] Mapping sync notice:", err));
+                                        }
+
+                                        // 3. Persist strictly the done status fields (avoids overwriting other fields & matches security rule)
                                         saveItem(
                                           "schedules",
                                           {
-                                            ...schedule,
                                             done: !isDone,
                                             doneAt: doneAtVal,
                                           },
                                           schedule.id,
-                                        ).catch(console.error);
+                                        ).catch((err) => {
+                                          console.error("[ScheduleDone] saveItem failed:", err);
+                                          // Revert optimistic state on explicit failure
+                                          setOptimisticDoneMap((prev) => {
+                                            const next = { ...prev };
+                                            delete next[schedule.id!];
+                                            return next;
+                                          });
+                                        });
                                       }
                                     }}
                                     className={`text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-md border flex items-center gap-0.5 transition-all active:scale-95 shadow-xs cursor-pointer ${
-                                      schedule.done
+                                      isDoneActual
                                         ? "bg-emerald-600 border-emerald-600 text-white animate-pulse"
                                         : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                                     }`}
                                   >
-                                    {schedule.done ? "Done ✓" : "Done"}
+                                    {isDoneActual ? "Done ✓" : "Done"}
                                   </button>
                                 )}
 

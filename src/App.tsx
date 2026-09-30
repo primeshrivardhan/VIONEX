@@ -411,6 +411,33 @@ export default function App() {
     };
   }, []);
 
+  // Sync farmer user mapping in Firestore whenever a farmer session is active
+  useEffect(() => {
+    if (currentUser?.type === "farmer" && currentUser?.data?.id && auth?.currentUser && db) {
+      const farmerData = currentUser.data;
+      const rawMobile = String(farmerData.mobile || "").trim();
+      const cleanMob = rawMobile.replace(/\D/g, "");
+      const mob10 = cleanMob.slice(-10);
+      const possibleIds = Array.from(new Set([
+        farmerData.id,
+        rawMobile,
+        cleanMob,
+        mob10,
+        mob10 ? `91${mob10}` : "",
+        mob10 ? `+91${mob10}` : "",
+        mob10 ? `0${mob10}` : "",
+      ].filter(Boolean))).map(id => String(id).trim());
+
+      setDoc(doc(db, "user_mappings", auth.currentUser.uid), {
+        farmerId: farmerData.id,
+        mobile: farmerData.mobile || "",
+        possibleIds,
+        role: "farmer",
+        loginId: rawMobile,
+      }, { merge: true }).catch((err) => console.warn("Failed to sync farmer user mapping:", err));
+    }
+  }, [currentUser?.type, currentUser?.data?.id]);
+
   // Notification registration
   useEffect(() => {
     const handleNotification = async () => {
@@ -1943,9 +1970,30 @@ export default function App() {
       if (matchedFarmer.password && matchedFarmer.password !== cleanPass) {
         return "wrong_password";
       }
-      // Do NOT saveItem here — farmers cannot update their own doc (Firestore rules block it),
-      // and attempting it triggers a permission-denied error that activates the circuit breaker,
-      // causing the subsequent schedule subscription to return an empty cache instead of live data.
+      // Sync user_mapping in Firestore so security rules recognize the farmer's schedule ownership
+      if (auth?.currentUser && db) {
+        const rawMobile = String(matchedFarmer.mobile || "").trim();
+        const cleanMob = rawMobile.replace(/\D/g, "");
+        const mob10 = cleanMob.slice(-10);
+        const possibleIds = Array.from(new Set([
+          matchedFarmer.id,
+          rawMobile,
+          cleanMob,
+          mob10,
+          mob10 ? `91${mob10}` : "",
+          mob10 ? `+91${mob10}` : "",
+          mob10 ? `0${mob10}` : "",
+        ].filter(Boolean))).map(id => String(id).trim());
+
+        setDoc(doc(db, "user_mappings", auth.currentUser.uid), {
+          farmerId: matchedFarmer.id,
+          mobile: matchedFarmer.mobile || "",
+          possibleIds,
+          role: "farmer",
+          loginId: cleanMobile,
+        }, { merge: true }).catch((err) => console.warn("Failed to set farmer user mapping:", err));
+      }
+
       setCurrentUser({ type: "farmer", data: { ...matchedFarmer } });
       setActiveTab("schedule");
       return "success";
