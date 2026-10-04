@@ -130,13 +130,28 @@ service cloud.firestore {
       allow read: if !isRestrictedDemoUser();
       allow create: if isAdmin() || isConsultant();
       allow update: if isAdmin() || 
-                      (isConsultant() && resource.data.createdBy == request.auth.uid) ||
+                      (isConsultant() && (
+                        resource.data.createdBy == request.auth.uid ||
+                        ('createdByUserId' in resource.data && resource.data.createdByUserId == request.auth.uid)
+                      )) ||
                       (
                         isSignedIn() && 
                         !isRestrictedDemoUser() && 
                         isFarmerScheduleOwner() && 
                         isOnlyMarkingScheduleDone()
                       );
+      allow delete: if isAdmin();
+    }
+
+    match /master-schedules/{scheduleId} {
+      allow read: if !isRestrictedDemoUser();
+      allow create: if isAdmin() || isConsultant();
+      allow update: if isAdmin() || (
+        isConsultant() && (
+          ('createdByUserId' in resource.data && resource.data.createdByUserId == request.auth.uid) ||
+          ('createdBy' in resource.data && resource.data.createdBy == request.auth.uid)
+        )
+      );
       allow delete: if isAdmin();
     }
 

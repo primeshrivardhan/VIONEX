@@ -310,3 +310,34 @@ export interface Consultant {
   updatedAt?: number;
 }
 
+export interface MasterScheduleProduct {
+  brandName: string;
+  marathiName?: string;
+  composition?: string;
+  activeIngredients?: string;
+  dose?: string;
+  doseSpray?: string;
+  doseDrip?: string;
+  doseBasal?: string;
+  companyName?: string;
+  formulation?: string;
+  notes?: string;
+  modeOfAction?: string;
+}
+
+export interface MasterSchedule {
+  id?: string;
+  cropName: string;
+  variety: string;
+  dayNo: number;
+  method: string;
+  otherMethod?: string;
+  stage: string;
+  selectedProducts: MasterScheduleProduct[];
+  notes?: string;
+  createdBy?: string;
+  createdByUserId?: string;
+  createdAt?: number | string;
+  updatedAt?: number | string;
+}
+

@@ -366,33 +366,6 @@ export default function App() {
         console.error("Error seeding initial alerts:", err);
       }
 
-      // Force clean products in Firestore once as requested by the user to empty the backend database
-      const hasCleanedV2 = localStorage.getItem("products_cleaned_v2");
-      if (!hasCleanedV2) {
-        try {
-          console.log("Cleaning products database as requested...");
-          const q = collection(db, "products");
-          const snapshot = await getDocsSafe(q, 4000);
-          if (!snapshot.empty) {
-            console.log(`Found ${snapshot.docs.length} products to clear in backend.`);
-            const ids = snapshot.docs.map(doc => doc.id);
-            const batchSize = 100;
-            for (let i = 0; i < ids.length; i += batchSize) {
-              const chunk = ids.slice(i, i + batchSize);
-              const batch = writeBatch(db);
-              chunk.forEach(id => {
-                batch.delete(doc(db, "products", id));
-              });
-              await batch.commit();
-            }
-          }
-          localStorage.setItem("products_cleaned_v2", "true");
-          localStorage.removeItem("cached_collection_products"); // clear client cache as well
-          console.log("Database clean completed successfully.");
-        } catch (err) {
-          console.error("Error during manual backend clean:", err);
-        }
-      }
       
     };
 
@@ -3169,7 +3142,12 @@ export default function App() {
             ) : activeTab === "masterSchedules" ? (
               <div className="flex-1 overflow-y-auto">
                 <LocalErrorBoundary featureName="मास्टर वेळापत्रक (Master Schedules)">
-                  <MasterScheduleView />
+                  <MasterScheduleView
+                    products={healedProducts}
+                    currentUser={currentUser}
+                    language={language}
+                    onBack={() => setActiveTab("dashboard")}
+                  />
                 </LocalErrorBoundary>
               </div>
             ) : activeTab === "dealers" ? (

@@ -1,0 +1,18 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Binary files - prevent CRLF conversion and text mangling
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.jks binary
+*.keystore binary
+*.jar binary
+*.aar binary
+*.apk binary
+*.aab binary
+*.zip binary
+*.flat binary

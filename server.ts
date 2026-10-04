@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import path from "path";
+import fs from "fs";
 import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
@@ -790,6 +791,24 @@ Return a comprehensive JSON array of up to 30 OFFICIAL products matching this qu
 
   app.get("/api/search-health", (req, res) => {
     res.json({ status: "healthy", stats: monitoringStats, timestamp: new Date().toISOString() });
+  });
+
+  app.get(["/download-apk", "/vionex.apk", "/app-release.apk"], (req, res) => {
+    const apkDistPath = path.resolve(process.cwd(), "dist", "vionex.apk");
+    const apkPublicPath = path.resolve(process.cwd(), "public", "vionex.apk");
+    const apkBuildPath = path.resolve(process.cwd(), "android", "app", "build", "outputs", "apk", "release", "app-release.apk");
+    
+    let target: string | null = null;
+    if (fs.existsSync(apkDistPath)) target = apkDistPath;
+    else if (fs.existsSync(apkPublicPath)) target = apkPublicPath;
+    else if (fs.existsSync(apkBuildPath)) target = apkBuildPath;
+
+    if (target) {
+      res.setHeader("Content-Type", "application/vnd.android.package-archive");
+      res.setHeader("Content-Disposition", "attachment; filename=\"vionex.apk\"");
+      return res.sendFile(target);
+    }
+    return res.status(404).send("APK not found.");
   });
 
   if (process.env.NODE_ENV !== "production") {
