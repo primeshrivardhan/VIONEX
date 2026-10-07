@@ -1538,6 +1538,7 @@ export default function ScheduleList({
           farmer={activeFarmer}
           cropName={activePlot?.displayLabel || selectedCrop}
           cropMeta={activeCropMeta}
+          language={language}
           onClose={() => setPreviewModalOpen(false)}
         />
       )}

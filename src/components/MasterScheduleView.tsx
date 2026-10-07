@@ -28,6 +28,7 @@ import {
   formatDualDisplay,
   translateDoseToEnglish,
   translateCompositionToMarathi,
+  getSingleLangLabel,
 } from "../lib/utils";
 import ConfirmationModal from "./ConfirmationModal";
 
@@ -62,11 +63,11 @@ export default function MasterScheduleView({
   // Form State
   const [formData, setFormData] = useState({
     cropName: MASTER_CROPS[0] || "द्राक्ष (Grape)",
-    variety: "सर्व व्हरायटीज (All Varieties)",
+    variety: isEn ? "All Varieties" : "सर्व व्हरायटीज",
     dayNo: "" as string | number,
     method: "फवारणी",
     otherMethod: "",
-    stage: "फुलोरा (Flowering)",
+    stage: isEn ? "Flowering" : "फुलोरा",
     selectedProducts: [] as MasterScheduleProduct[],
     notes: "",
   });
@@ -213,11 +214,16 @@ export default function MasterScheduleView({
     setEditingId(null);
     setFormData({
       cropName: selectedCropFilter !== "all" ? selectedCropFilter : MASTER_CROPS[0] || "द्राक्ष (Grape)",
-      variety: selectedVarietyFilter !== "all" ? selectedVarietyFilter : "सर्व व्हरायटीज (All Varieties)",
+      variety:
+        selectedVarietyFilter !== "all"
+          ? getSingleLangLabel(selectedVarietyFilter, isEn)
+          : isEn
+          ? "All Varieties"
+          : "सर्व व्हरायटीज",
       dayNo: "",
       method: "फवारणी",
       otherMethod: "",
-      stage: "फुलोरा (Flowering)",
+      stage: isEn ? "Flowering" : "फुलोरा",
       selectedProducts: [],
       notes: "",
     });
@@ -230,11 +236,11 @@ export default function MasterScheduleView({
     setEditingId(sched.id || null);
     setFormData({
       cropName: sched.cropName,
-      variety: sched.variety || "सर्व व्हरायटीज (All Varieties)",
+      variety: getSingleLangLabel(sched.variety || "सर्व व्हरायटीज (All Varieties)", isEn),
       dayNo: sched.dayNo !== undefined ? sched.dayNo : "",
       method: sched.method || "फवारणी",
       otherMethod: sched.otherMethod || "",
-      stage: sched.stage || "",
+      stage: getSingleLangLabel(sched.stage || "", isEn),
       selectedProducts: sched.selectedProducts || [],
       notes: sched.notes || "",
     });
@@ -248,11 +254,11 @@ export default function MasterScheduleView({
     setFormError("");
 
     if (!formData.cropName.trim()) {
-      setFormError("कृपया पीक निवडा (Please select a crop).");
+      setFormError(isEn ? "Please select a crop." : "कृपया पीक निवडा.");
       return;
     }
     if (formData.dayNo === "" || isNaN(Number(formData.dayNo))) {
-      setFormError("कृपया दिवस क्रमांक टाका (Please enter a valid Day No).");
+      setFormError(isEn ? "Please enter a valid Day No." : "कृपया वैध दिवस क्रमांक टाका.");
       return;
     }
 
@@ -294,13 +300,15 @@ export default function MasterScheduleView({
     try {
       await saveItem("master-schedules", payload, targetId);
       setSaveSuccessMsg(
-        editingId ? "मास्टर शेड्युल यशस्वीरित्या अद्यतनित केले!" : "नवीन मास्टर शेड्युल यशस्वीरित्या जोडले गेले!"
+        editingId
+          ? (isEn ? "Master schedule updated successfully!" : "मास्टर शेड्युल यशस्वीरित्या अद्यतनित केले!")
+          : (isEn ? "New master schedule added successfully!" : "नवीन मास्टर शेड्युल यशस्वीरित्या जोडले गेले!")
       );
       setTimeout(() => setSaveSuccessMsg(""), 3500);
       setViewMode("list");
     } catch (err: any) {
       console.error("Failed to save master schedule:", err);
-      setFormError("मास्टर शेड्युल सेव्ह करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.");
+      setFormError(isEn ? "Error saving master schedule. Please try again." : "मास्टर शेड्युल सेव्ह करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.");
     }
   };
 
@@ -412,7 +420,7 @@ export default function MasterScheduleView({
               onClick={onBack}
               type="button"
               className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 border border-slate-200 transition-colors"
-              title="मागे जा (Back)"
+              title={isEn ? "Back" : "मागे जा"}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -424,7 +432,7 @@ export default function MasterScheduleView({
               }}
               type="button"
               className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 border border-slate-200 transition-colors"
-              title="यादीकडे परत जा (Back to List)"
+              title={isEn ? "Back to List" : "यादीकडे परत जा"}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -487,7 +495,7 @@ export default function MasterScheduleView({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">
-                  पीक (Crop) <span className="text-red-500">*</span>
+                  {isEn ? "Crop" : "पीक"} <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.cropName}
@@ -497,7 +505,7 @@ export default function MasterScheduleView({
                     setFormData((prev) => ({
                       ...prev,
                       cropName: newCrop,
-                      variety: varieties[0] || "सर्व व्हरायटीज (All Varieties)",
+                      variety: getSingleLangLabel(varieties[0] || "सर्व व्हरायटीज (All Varieties)", isEn),
                     }));
                   }}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50 text-slate-800"
@@ -505,7 +513,7 @@ export default function MasterScheduleView({
                 >
                   {MASTER_CROPS.map((crop) => (
                     <option key={crop} value={crop}>
-                      {crop}
+                      {getSingleLangLabel(crop, isEn)}
                     </option>
                   ))}
                 </select>
@@ -513,19 +521,19 @@ export default function MasterScheduleView({
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">
-                  व्हरायटी / वाण (Variety)
+                  {isEn ? "Variety" : "व्हरायटी / वाण"}
                 </label>
                 <input
                   type="text"
                   list="variety-datalist"
                   value={formData.variety}
                   onChange={(e) => setFormData((prev) => ({ ...prev, variety: e.target.value }))}
-                  placeholder="उदा. सर्व व्हरायटीज / थॉमसन सीडलेस"
+                  placeholder={isEn ? "e.g. All Varieties / Thomson Seedless" : "उदा. सर्व व्हरायटीज / थॉमसन सीडलेस"}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50 text-slate-800"
                 />
                 <datalist id="variety-datalist">
                   {availableVarieties.map((v, i) => (
-                    <option key={i} value={v} />
+                    <option key={i} value={getSingleLangLabel(v, isEn)} />
                   ))}
                 </datalist>
               </div>
@@ -535,23 +543,25 @@ export default function MasterScheduleView({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">
-                  दिवस क्रमांक (Day No.) <span className="text-red-500">*</span>
+                  {isEn ? "Day No." : "दिवस क्रमांक"} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   min="0"
                   value={formData.dayNo}
                   onChange={(e) => setFormData((prev) => ({ ...prev, dayNo: e.target.value }))}
-                  placeholder="उदा. 15"
+                  placeholder={isEn ? "e.g. 15" : "उदा. 15"}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold focus:ring-1 focus:ring-purple-500 outline-none text-purple-700 bg-purple-50/30"
                   required
                 />
-                <span className="text-[10px] text-slate-400 font-medium">लागवड/छाटणीनंतरचा दिवस</span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  {isEn ? "Days after sowing/pruning" : "लागवड/छाटणीनंतरचा दिवस"}
+                </span>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">
-                  पद्धत (Method) <span className="text-red-500">*</span>
+                  {isEn ? "Method" : "पद्धत"} <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.method}
@@ -569,30 +579,30 @@ export default function MasterScheduleView({
                   }}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50 text-slate-800"
                 >
-                  <option value="फवारणी">फवारणी (Spray)</option>
-                  <option value="ड्रीप">ड्रीप (Drip)</option>
-                  <option value="आळवणी / ड्रिंचिंग">आळवणी / ड्रिंचिंग (Drenching)</option>
-                  <option value="गॅप">गॅप / विश्रांतीचा दिवस (Gap Day)</option>
-                  <option value="मिक्स डोस">Mix Dose</option>
-                  <option value="मॅन्युअल/इतर">मॅन्युअल/इतर (Manual/Other)</option>
+                  <option value="फवारणी">{isEn ? "Spray" : "फवारणी"}</option>
+                  <option value="ड्रीप">{isEn ? "Drip" : "ड्रीप"}</option>
+                  <option value="आळवणी / ड्रिंचिंग">{isEn ? "Drenching" : "आळवणी / ड्रिंचिंग"}</option>
+                  <option value="गॅप">{isEn ? "Gap / Rest Day" : "गॅप / विश्रांतीचा दिवस"}</option>
+                  <option value="मिक्स डोस">{isEn ? "Mix Dose" : "मिक्स डोस"}</option>
+                  <option value="मॅन्युअल/इतर">{isEn ? "Manual / Other" : "मॅन्युअल / इतर"}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">
-                  पिकाची अवस्था (Stage)
+                  {isEn ? "Crop Stage" : "पिकाची अवस्था"}
                 </label>
                 <input
                   type="text"
                   list="stage-datalist"
                   value={formData.stage}
                   onChange={(e) => setFormData((prev) => ({ ...prev, stage: e.target.value }))}
-                  placeholder="उदा. फुलोरा (Flowering)"
+                  placeholder={isEn ? "e.g. Flowering" : "उदा. फुलोरा"}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50 text-slate-800"
                 />
                 <datalist id="stage-datalist">
                   {CROP_STAGES.map((s, i) => (
-                    <option key={i} value={s} />
+                    <option key={i} value={getSingleLangLabel(s, isEn)} />
                   ))}
                 </datalist>
               </div>
@@ -601,14 +611,14 @@ export default function MasterScheduleView({
             {formData.method === "मॅन्युअल/इतर" && (
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">
-                  इतर पद्धत स्पष्ट करा (Specify Other Method)
+                  {isEn ? "Specify Other Method" : "इतर पद्धत स्पष्ट करा"}
                 </label>
                 <input
                   type="text"
                   value={formData.otherMethod}
                   onChange={(e) => setFormData((prev) => ({ ...prev, otherMethod: e.target.value }))}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-1 focus:ring-purple-500 outline-none"
-                  placeholder="उदा. धुरळणी किंवा खत घालणे"
+                  placeholder={isEn ? "e.g. Dusting or soil application" : "उदा. धुरळणी किंवा खत घालणे"}
                 />
               </div>
             )}
@@ -616,23 +626,26 @@ export default function MasterScheduleView({
             {/* Quick Stage Selection Chips */}
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                द्रुत अवस्था निवड (Quick Stage Select)
+                {isEn ? "Quick Stage Select" : "द्रुत अवस्था निवड"}
               </span>
               <div className="flex flex-wrap gap-1.5">
-                {CROP_STAGES.map((stageItem) => (
-                  <button
-                    key={stageItem}
-                    type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, stage: stageItem }))}
-                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
-                      formData.stage === stageItem
-                        ? "bg-purple-100 text-purple-800 border-purple-300 font-bold"
-                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    {stageItem}
-                  </button>
-                ))}
+                {CROP_STAGES.map((stageItem) => {
+                  const singleStage = getSingleLangLabel(stageItem, isEn);
+                  return (
+                    <button
+                      key={stageItem}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, stage: singleStage }))}
+                      className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
+                        formData.stage === singleStage || formData.stage === stageItem
+                          ? "bg-purple-100 text-purple-800 border-purple-300 font-bold"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {singleStage}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -640,7 +653,7 @@ export default function MasterScheduleView({
             <div className="bg-slate-50/70 p-3 sm:p-4 rounded-xl border border-slate-200">
               <h3 className="text-xs font-black text-slate-800 mb-2 flex items-center gap-1.5">
                 <PlusCircle className="w-4 h-4 text-purple-600" />
-                उत्पादने निवडा (Select Products from Product List)
+                {isEn ? "Select Products from Product List" : "उत्पादने निवडा"}
               </h3>
 
               {/* Product search box */}
@@ -656,7 +669,11 @@ export default function MasterScheduleView({
                     }}
                     onFocus={() => setShowProductOptions(true)}
                     className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:ring-1 focus:ring-purple-500 outline-none bg-white"
-                    placeholder="उत्पादने शोधा किंवा खालील यादीतून निवडा..."
+                    placeholder={
+                      isEn
+                        ? "Search products or select from list..."
+                        : "उत्पादने शोधा किंवा खालील यादीतून निवडा..."
+                    }
                   />
                   {productSearch && (
                     <button
@@ -673,13 +690,21 @@ export default function MasterScheduleView({
                 {showProductOptions && (
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto z-30">
                     <div className="text-[10px] text-slate-500 px-3 py-1.5 bg-slate-50 font-bold uppercase sticky top-0 border-b border-slate-100 flex justify-between items-center z-10">
-                      <span>{productSearch ? "शोध परिणाम" : "उपलब्ध उत्पादने"}</span>
+                      <span>
+                        {isEn
+                          ? productSearch
+                            ? "Search Results"
+                            : "Available Products"
+                          : productSearch
+                          ? "शोध परिणाम"
+                          : "उपलब्ध उत्पादने"}
+                      </span>
                       <button
                         type="button"
                         onClick={() => setShowProductOptions(false)}
                         className="text-purple-700 hover:text-purple-900 font-bold bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded text-[10px] transition-colors"
                       >
-                        बंद करा (Close)
+                        {isEn ? "Close" : "बंद करा"}
                       </button>
                     </div>
 
@@ -701,14 +726,16 @@ export default function MasterScheduleView({
                           >
                             <div className="flex-1 pr-2">
                               <p className="text-xs font-bold text-slate-800">
-                                {formatDualDisplay(p.brandName, p.marathiName)}
+                                {formatDualDisplay(p.brandName, p.marathiName, language)}
                               </p>
                               {p.companyName && (
                                 <p className="text-[10px] text-slate-500">{p.companyName}</p>
                               )}
                               {(p.composition || p.activeIngredients) && (
                                 <p className="text-[9px] text-purple-700 line-clamp-1">
-                                  {p.composition || p.activeIngredients}
+                                  {isEn
+                                    ? p.composition || p.activeIngredients
+                                    : translateCompositionToMarathi(p.composition || p.activeIngredients)}
                                 </p>
                               )}
                             </div>
@@ -720,7 +747,13 @@ export default function MasterScheduleView({
                                     : "bg-slate-100 text-slate-600 hover:bg-purple-100 hover:text-purple-700"
                                 }`}
                               >
-                                {isSel ? "निवडले (Selected)" : "+ जोडा (Add)"}
+                                {isSel
+                                  ? isEn
+                                    ? "Selected"
+                                    : "निवडले"
+                                  : isEn
+                                  ? "+ Add"
+                                  : "+ जोडा"}
                               </span>
                             </div>
                           </div>
@@ -728,7 +761,7 @@ export default function MasterScheduleView({
                       })
                     ) : (
                       <div className="p-4 text-center text-xs text-slate-500 font-medium">
-                        कोणतेही उत्पादन आढळले नाही.
+                        {isEn ? "No products found." : "कोणतेही उत्पादन आढळले नाही."}
                       </div>
                     )}
                   </div>
@@ -739,7 +772,9 @@ export default function MasterScheduleView({
               {formData.selectedProducts.length > 0 ? (
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    निवडलेली उत्पादने ({formData.selectedProducts.length})
+                    {isEn
+                      ? `Selected Products (${formData.selectedProducts.length})`
+                      : `निवडलेली उत्पादने (${formData.selectedProducts.length})`}
                   </span>
                   {formData.selectedProducts.map((p, idx) => (
                     <div
@@ -748,21 +783,23 @@ export default function MasterScheduleView({
                     >
                       <div className="flex-1">
                         <p className="text-xs font-bold text-slate-800">
-                          {formatDualDisplay(p.brandName, p.marathiName)}
+                          {formatDualDisplay(p.brandName, p.marathiName, language)}
                         </p>
                         {p.companyName && (
                           <p className="text-[10px] text-slate-500">{p.companyName}</p>
                         )}
                         {p.composition && (
                           <p className="text-[9px] text-purple-700 font-semibold line-clamp-1">
-                            घटक: {translateCompositionToMarathi(p.composition)}
+                            {isEn
+                              ? `Composition: ${p.composition}`
+                              : `घटक: ${translateCompositionToMarathi(p.composition)}`}
                           </p>
                         )}
                       </div>
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <input
                           type="text"
-                          placeholder="उदा. 2 gm/Ltr किंवा 500 ml/एकर"
+                          placeholder={isEn ? "e.g. 2 gm/Ltr or 500 ml/Acre" : "उदा. 2 gm/Ltr किंवा 500 ml/एकर"}
                           value={p.dose || ""}
                           onChange={(e) => handleProductDoseChange(idx, e.target.value)}
                           className="w-full sm:w-36 px-2 py-1 rounded-lg border border-slate-200 text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50"
@@ -771,7 +808,7 @@ export default function MasterScheduleView({
                           type="button"
                           onClick={() => handleRemoveProduct(idx)}
                           className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                          title="काढून टाका (Remove)"
+                          title={isEn ? "Remove" : "काढून टाका"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -781,7 +818,9 @@ export default function MasterScheduleView({
                 </div>
               ) : (
                 <p className="text-xs text-center text-slate-400 py-3 font-medium">
-                  अद्याप कोणतीही उत्पादने निवडलेली नाहीत. वरील शोधपेटीतून उत्पादने निवडा.
+                  {isEn
+                    ? "No products selected yet. Select products from the search box above."
+                    : "अद्याप कोणतीही उत्पादने निवडलेली नाहीत. वरील शोधपेटीतून उत्पादने निवडा."}
                 </p>
               )}
             </div>
@@ -791,7 +830,7 @@ export default function MasterScheduleView({
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
                   <Leaf className="w-4 h-4 text-purple-600" />
-                  टीप / सल्ला (Notes & Specialist Advice)
+                  {isEn ? "Notes & Specialist Advice" : "टीप / सल्ला"}
                 </label>
                 <button
                   type="button"
@@ -803,14 +842,26 @@ export default function MasterScheduleView({
                   }`}
                 >
                   {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                  <span>{isListening ? "ऐकत आहे..." : "बोलून सांगा"}</span>
+                  <span>
+                    {isListening
+                      ? isEn
+                        ? "Listening..."
+                        : "ऐकत आहे..."
+                      : isEn
+                      ? "Voice Input"
+                      : "बोलून सांगा"}
+                  </span>
                 </button>
               </div>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                 rows={3}
-                placeholder="उदा. सकाळी लवकर फवारणी करावी. पाण्यात सिलिकॉन स्टिकर अवश्य वापरावे..."
+                placeholder={
+                  isEn
+                    ? "e.g. Spray early in the morning. Use silicone sticker with water..."
+                    : "उदा. सकाळी लवकर फवारणी करावी. पाण्यात सिलिकॉन स्टिकर अवश्य वापरावे..."
+                }
                 className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-purple-500 outline-none bg-white resize-y"
               />
             </div>
@@ -826,14 +877,22 @@ export default function MasterScheduleView({
               }}
               className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-xl text-xs font-bold transition-colors"
             >
-              रद्द करा (Cancel)
+              {isEn ? "Cancel" : "रद्द करा"}
             </button>
             <button
               type="submit"
               className="px-6 py-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
             >
               <Save className="w-4 h-4" />
-              <span>{editingId ? "बदल जतन करा (Save Changes)" : "शेड्युल सेव्ह करा (Save Schedule)"}</span>
+              <span>
+                {editingId
+                  ? isEn
+                    ? "Save Changes"
+                    : "बदल जतन करा"
+                  : isEn
+                  ? "Save Schedule"
+                  : "शेड्युल सेव्ह करा"}
+              </span>
             </button>
           </div>
         </form>
@@ -848,7 +907,7 @@ export default function MasterScheduleView({
               {/* Crop Filter */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  पीक फिल्टर (Filter by Crop)
+                  {isEn ? "Filter by Crop" : "पीक फिल्टर"}
                 </label>
                 <select
                   value={selectedCropFilter}
@@ -858,10 +917,10 @@ export default function MasterScheduleView({
                   }}
                   className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50"
                 >
-                  <option value="all">सर्व पिके (All Crops)</option>
+                  <option value="all">{isEn ? "All Crops" : "सर्व पिके"}</option>
                   {MASTER_CROPS.map((crop) => (
                     <option key={crop} value={crop}>
-                      {crop}
+                      {getSingleLangLabel(crop, isEn)}
                     </option>
                   ))}
                 </select>
@@ -870,7 +929,7 @@ export default function MasterScheduleView({
               {/* Variety Filter */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  वाण फिल्टर (Filter by Variety)
+                  {isEn ? "Filter by Variety" : "वाण फिल्टर"}
                 </label>
                 <select
                   value={selectedVarietyFilter}
@@ -878,10 +937,10 @@ export default function MasterScheduleView({
                   disabled={selectedCropFilter === "all"}
                   className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50 disabled:opacity-50"
                 >
-                  <option value="all">सर्व व्हरायटीज (All Varieties)</option>
+                  <option value="all">{isEn ? "All Varieties" : "सर्व व्हरायटीज"}</option>
                   {filterVarieties.map((v) => (
                     <option key={v} value={v}>
-                      {v}
+                      {getSingleLangLabel(v, isEn)}
                     </option>
                   ))}
                 </select>
@@ -890,7 +949,7 @@ export default function MasterScheduleView({
               {/* Search Box */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  शोधा (Search Schedules)
+                  {isEn ? "Search Schedules" : "शोधा"}
                 </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-2 w-3.5 h-3.5 text-slate-400" />
@@ -898,7 +957,7 @@ export default function MasterScheduleView({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="उत्पादन, अवस्था किंवा दिवस..."
+                    placeholder={isEn ? "Product, stage, or day..." : "उत्पादन, अवस्था किंवा दिवस..."}
                     className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50"
                   />
                   {searchQuery && (
@@ -917,7 +976,7 @@ export default function MasterScheduleView({
             {/* Counter Bar */}
             <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100 font-semibold">
               <span>
-                एकूण नोंदवलेली मास्टर शेड्युल्स:{" "}
+                {isEn ? "Total Registered Master Schedules: " : "एकूण नोंदवलेली मास्टर शेड्युल्स: "}
                 <strong className="text-purple-700 font-black">{filteredList.length}</strong>
               </span>
               {(selectedCropFilter !== "all" || selectedVarietyFilter !== "all" || searchQuery) && (
@@ -930,7 +989,7 @@ export default function MasterScheduleView({
                   }}
                   className="text-purple-600 hover:text-purple-800 font-bold hover:underline"
                 >
-                  फिल्टर क्लिअर करा (Reset Filters)
+                  {isEn ? "Reset Filters" : "फिल्टर क्लिअर करा"}
                 </button>
               )}
             </div>
@@ -948,11 +1007,12 @@ export default function MasterScheduleView({
                   <div className="flex items-center gap-2">
                     <Sprout className="w-5 h-5 text-purple-700 shrink-0" />
                     <h2 className="text-sm sm:text-base font-black text-purple-950">
-                      {cropGroup.cropName}
+                      {getSingleLangLabel(cropGroup.cropName, isEn)}
                     </h2>
                   </div>
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
-                    {cropGroup.varieties.reduce((acc, v) => acc + v.items.length, 0)} शेड्युल्स
+                    {cropGroup.varieties.reduce((acc, v) => acc + v.items.length, 0)}{" "}
+                    {isEn ? "Schedules" : "शेड्युल्स"}
                   </span>
                 </div>
 
@@ -963,110 +1023,125 @@ export default function MasterScheduleView({
                       <div className="flex items-center gap-2 mb-3">
                         <Layers className="w-4 h-4 text-slate-400" />
                         <h3 className="text-xs font-black text-slate-700">
-                          {varGroup.variety}
+                          {getSingleLangLabel(varGroup.variety, isEn)}
                         </h3>
                         <span className="text-[10px] text-slate-400 font-semibold">
-                          ({varGroup.items.length} टप्पे)
+                          ({varGroup.items.length} {isEn ? "Stages" : "टप्पे"})
                         </span>
                       </div>
 
                       {/* Day Cards Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {varGroup.items.map((sched) => (
-                          <div
-                            key={sched.id}
-                            className="bg-slate-50/60 rounded-xl border border-slate-200 p-3 hover:border-purple-300 transition-all hover:shadow-xs flex flex-col justify-between"
-                          >
-                            <div>
-                              {/* Header Badges */}
-                              <div className="flex items-start justify-between gap-2 mb-2">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="bg-purple-600 text-white text-[11px] font-black px-2 py-0.5 rounded-md shadow-xs">
-                                    दिवस {sched.dayNo} (Day {sched.dayNo})
-                                  </span>
-                                  <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                                      sched.method === "ड्रीप"
-                                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                                        : sched.method === "गॅप"
-                                        ? "bg-amber-50 text-amber-700 border-amber-200"
-                                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    }`}
-                                  >
-                                    {sched.method}
-                                  </span>
-                                  {sched.stage && (
-                                    <span className="text-[10px] font-medium bg-white text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
-                                      {sched.stage}
+                        {varGroup.items.map((sched) => {
+                          const methodDisplay = isEn
+                            ? sched.method === "फवारणी"
+                              ? "Spray"
+                              : sched.method === "ड्रीप"
+                              ? "Drip"
+                              : sched.method === "आळवणी"
+                              ? "Drenching"
+                              : sched.method === "गॅप"
+                              ? "Rest / Gap"
+                              : sched.method
+                            : sched.method;
+                          return (
+                            <div
+                              key={sched.id}
+                              className="bg-slate-50/60 rounded-xl border border-slate-200 p-3 hover:border-purple-300 transition-all hover:shadow-xs flex flex-col justify-between"
+                            >
+                              <div>
+                                {/* Header Badges */}
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="bg-purple-600 text-white text-[11px] font-black px-2 py-0.5 rounded-md shadow-xs">
+                                      {isEn ? `Day ${sched.dayNo}` : `दिवस ${sched.dayNo}`}
                                     </span>
-                                  )}
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEdit(sched)}
-                                    className="p-1 text-slate-400 hover:text-purple-600 hover:bg-white rounded-md transition-colors"
-                                    title="संपादित करा (Edit)"
-                                  >
-                                    <Edit className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDeleteTargetId(sched.id || null)}
-                                    className="p-1 text-slate-400 hover:text-red-600 hover:bg-white rounded-md transition-colors"
-                                    title="हटवा (Delete)"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Products List */}
-                              {sched.selectedProducts && sched.selectedProducts.length > 0 ? (
-                                <div className="space-y-1 mb-2 bg-white rounded-lg p-2 border border-slate-100">
-                                  {sched.selectedProducts.map((p, pIdx) => (
-                                    <div
-                                      key={pIdx}
-                                      className="flex items-center justify-between text-xs py-0.5 border-b border-slate-50 last:border-0"
+                                    <span
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                        sched.method === "ड्रीप"
+                                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                                          : sched.method === "गॅप"
+                                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      }`}
                                     >
-                                      <div className="flex-1 pr-2">
-                                        <span className="font-bold text-slate-800">
-                                          {formatDualDisplay(p.brandName, p.marathiName)}
-                                        </span>
-                                        {p.companyName && (
-                                          <span className="text-[10px] text-slate-400 ml-1">
-                                            ({p.companyName})
+                                      {methodDisplay}
+                                    </span>
+                                    {sched.stage && (
+                                      <span className="text-[10px] font-medium bg-white text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
+                                        {getSingleLangLabel(sched.stage, isEn)}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEdit(sched)}
+                                      className="p-1 text-slate-400 hover:text-purple-600 hover:bg-white rounded-md transition-colors"
+                                      title={isEn ? "Edit" : "संपादित करा"}
+                                    >
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeleteTargetId(sched.id || null)}
+                                      className="p-1 text-slate-400 hover:text-red-600 hover:bg-white rounded-md transition-colors"
+                                      title={isEn ? "Delete" : "हटवा"}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Products List */}
+                                {sched.selectedProducts && sched.selectedProducts.length > 0 ? (
+                                  <div className="space-y-1 mb-2 bg-white rounded-lg p-2 border border-slate-100">
+                                    {sched.selectedProducts.map((p, pIdx) => (
+                                      <div
+                                        key={pIdx}
+                                        className="flex items-center justify-between text-xs py-0.5 border-b border-slate-50 last:border-0"
+                                      >
+                                        <div className="flex-1 pr-2">
+                                          <span className="font-bold text-slate-800">
+                                            {formatDualDisplay(p.brandName, p.marathiName, language)}
+                                          </span>
+                                          {p.companyName && (
+                                            <span className="text-[10px] text-slate-400 ml-1">
+                                              ({p.companyName})
+                                            </span>
+                                          )}
+                                        </div>
+                                        {p.dose && (
+                                          <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 shrink-0">
+                                            {p.dose}
                                           </span>
                                         )}
                                       </div>
-                                      {p.dose && (
-                                        <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 shrink-0">
-                                          {p.dose}
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-[10px] text-slate-400 italic mb-2">
-                                  कोणतीही उत्पादने जोडलेली नाहीत (उदा. विश्रांती दिवस किंवा पाणी नियोजन).
-                                </p>
-                              )}
-
-                              {/* Notes */}
-                              {sched.notes && (
-                                <div className="p-2 bg-blue-50/70 border border-blue-100 rounded-lg flex items-start gap-1.5 text-xs text-slate-700">
-                                  <Leaf className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                                  <p className="text-[11px] font-medium leading-relaxed">
-                                    {sched.notes}
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-[10px] text-slate-400 italic mb-2">
+                                    {isEn
+                                      ? "No products added (e.g. rest day or water management)."
+                                      : "कोणतीही उत्पादने जोडलेली नाहीत (उदा. विश्रांती दिवस किंवा पाणी नियोजन)."}
                                   </p>
-                                </div>
-                              )}
+                                )}
+
+                                {/* Notes */}
+                                {sched.notes && (
+                                  <div className="p-2 bg-blue-50/70 border border-blue-100 rounded-lg flex items-start gap-1.5 text-xs text-slate-700">
+                                    <Leaf className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                                    <p className="text-[11px] font-medium leading-relaxed">
+                                      {sched.notes}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -1079,11 +1154,15 @@ export default function MasterScheduleView({
                 <CalendarDays className="w-8 h-8 text-purple-400" />
               </div>
               <h3 className="text-sm font-black text-slate-800 mb-1">
-                कोणतेही मास्टर शेड्युल आढळले नाही
+                {isEn ? "No Master Schedule Found" : "कोणतेही मास्टर शेड्युल आढळले नाही"}
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto mb-4 font-medium">
                 {searchQuery || selectedCropFilter !== "all"
-                  ? "निवडलेल्या फिल्टरनुसार कोणतेही मास्टर शेड्युल सापडले नाही. कृपया फिल्टर बदला किंवा नवीन शेड्युल तयार करा."
+                  ? isEn
+                    ? "No master schedules match the selected filters. Please adjust filters or create a new schedule."
+                    : "निवडलेल्या फिल्टरनुसार कोणतेही मास्टर शेड्युल सापडले नाही. कृपया फिल्टर बदला किंवा नवीन शेड्युल तयार करा."
+                  : isEn
+                  ? "No master schedules created yet. Click the button below to create the first verified schedule."
                   : "अद्याप पिकांसाठी मास्टर शेड्युल तयार केलेले नाही. खालील बटणावर क्लिक करून पहिले प्रमाणित शेड्युल तयार करा."}
               </p>
               <button
@@ -1092,7 +1171,7 @@ export default function MasterScheduleView({
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
               >
                 <Plus className="w-4 h-4" />
-                <span>पहिले मास्टर शेड्युल तयार करा</span>
+                <span>{isEn ? "Create First Master Schedule" : "पहिले मास्टर शेड्युल तयार करा"}</span>
               </button>
             </div>
           )}
@@ -1102,8 +1181,13 @@ export default function MasterScheduleView({
       {/* Delete Confirmation Modal */}
       {deleteTargetId && (
         <ConfirmationModal
-          title="मास्टर शेड्युल हटवा (Delete Master Schedule)"
-          message="तुम्हाला हे मास्टर शेड्युल कायमचे काढून टाकायचे आहे का? ही कृती पूर्ववत केली जाऊ शकत नाही."
+          isOpen={Boolean(deleteTargetId)}
+          title={isEn ? "Delete Master Schedule" : "मास्टर शेड्युल हटवा"}
+          message={
+            isEn
+              ? "Are you sure you want to permanently delete this master schedule? This action cannot be undone."
+              : "तुम्हाला हे मास्टर शेड्युल कायमचे काढून टाकायचे आहे का? ही कृती पूर्ववत केली जाऊ शकत नाही."
+          }
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTargetId(null)}
         />
@@ -1111,3 +1195,4 @@ export default function MasterScheduleView({
     </div>
   );
 }
+

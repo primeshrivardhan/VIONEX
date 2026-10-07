@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, memo } from "react";
 import { Package, Filter, Search, ChevronDown, Check, Info } from "lucide-react";
-import { translateCompositionToMarathi, translateMarathiToEnglish, formatDualDisplay, translateEnglishToMarathi } from "../lib/utils";
+import { translateCompositionToMarathi, translateMarathiToEnglish, formatDualDisplay, translateEnglishToMarathi, getSingleLangLabel } from "../lib/utils";
 import { standardizeCompanyName } from "../lib/company-helper";
 import ProductDetailsModal from "./ProductDetailsModal";
 import { Product } from "../types";
@@ -198,16 +198,20 @@ export default memo(function ProductList({
       <div className="flex flex-col items-center justify-center p-8 bg-white rounded-xl shadow-sm border border-slate-200 mt-4 mx-4">
         <Package className="w-16 h-16 text-slate-300 mb-4" />
         <h2 className="text-xl font-bold text-slate-800 mb-2">
-          उत्पादने यादी (Products)
+          {isEn ? "Products" : "उत्पादने यादी"}
         </h2>
-        <p className="text-sm text-slate-500 mb-6 text-center">उत्पादने यादी रिकामी आहे. तुम्ही नवीन उत्पादन नोंदवू शकता.</p>
+        <p className="text-sm text-slate-500 mb-6 text-center">
+          {isEn
+            ? "Product list is empty. You can register a new product."
+            : "उत्पादने यादी रिकामी आहे. तुम्ही नवीन उत्पादन नोंदवू शकता."}
+        </p>
         {canManage && (
           <div className="flex flex-wrap gap-2.5 justify-center">
             <button
               onClick={onAddProduct}
               className="flex items-center justify-center gap-1 text-[11px] bg-blue-100 text-blue-800 px-3.5 py-2 rounded font-bold hover:bg-blue-200 transition border border-blue-200"
             >
-              + नवीन उत्पादन नोंदवा
+              {isEn ? "+ Register New Product" : "+ नवीन उत्पादन नोंदवा"}
             </button>
           </div>
         )}
@@ -220,7 +224,7 @@ export default memo(function ProductList({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
           <Package className="w-5 h-5 text-blue-600" />
-          उत्पादने यादी (Products List) ({filteredProducts.length})
+          {isEn ? "Products List" : "उत्पादने यादी"} ({filteredProducts.length})
         </h2>
         
         {canManage && (
@@ -228,20 +232,26 @@ export default memo(function ProductList({
             {onDeleteAllProducts && (
               <button
                 onClick={() => {
-                  if (window.confirm("तुम्हाला खात्री आहे की तुम्हाला सर्व उत्पादने हटवायची आहेत?")) {
+                  if (
+                    window.confirm(
+                      isEn
+                        ? "Are you sure you want to delete all products?"
+                        : "तुम्हाला खात्री आहे की तुम्हाला सर्व उत्पादने हटवायची आहेत?"
+                    )
+                  ) {
                     onDeleteAllProducts();
                   }
                 }}
                 className="flex items-center gap-1 text-[11px] bg-red-600 text-white px-3 py-1.5 rounded font-bold hover:bg-red-700 transition shadow-sm"
               >
-                🗑️ सर्व हटवा
+                🗑️ {isEn ? "Delete All" : "सर्व हटवा"}
               </button>
             )}
             <button
               onClick={onAddProduct}
               className="flex items-center gap-1 text-[11px] bg-blue-600 text-white px-3 py-1.5 rounded font-bold hover:bg-blue-700 transition ml-auto sm:ml-0 shadow-sm"
             >
-              + उत्पादन जोडा
+              + {isEn ? "Add Product" : "उत्पादन जोडा"}
             </button>
           </div>
         )}
@@ -274,67 +284,71 @@ export default memo(function ProductList({
           className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-blue-600 transition-colors"
         >
           <Filter className="w-3.5 h-3.5" />
-          अधिक फिल्टर्स (Filters) {showFilters ? <ChevronDown className="w-3.5 h-3.5 rotate-180" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          {isEn ? "More Filters" : "अधिक फिल्टर्स"} {showFilters ? <ChevronDown className="w-3.5 h-3.5 rotate-180" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
 
         {showFilters && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2 border-t border-slate-100">
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 mb-1">Category (श्रेणी)</label>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">{isEn ? "Category" : "श्रेणी"}</label>
               <select 
                 value={selectedCategory} 
                 onChange={e => setSelectedCategory(e.target.value)}
                 className="w-full text-[11px] p-1.5 border border-slate-200 rounded outline-none bg-slate-50"
               >
-                {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {ALL_CATEGORIES.map(c => (
+                  <option key={c} value={c}>
+                    {c === "All" ? (isEn ? "All" : "सर्व") : getSingleLangLabel(c, isEn)}
+                  </option>
+                ))}
               </select>
             </div>
             
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 mb-1">Company</label>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">{isEn ? "Company" : "कंपनी"}</label>
               <select 
                 value={selectedCompany} 
                 onChange={e => setSelectedCompany(e.target.value)}
                 className="w-full text-[11px] p-1.5 border border-slate-200 rounded outline-none bg-slate-50"
               >
-                <option value="">सर्व कंपन्या</option>
+                <option value="">{isEn ? "All Companies" : "सर्व कंपन्या"}</option>
                 {companies.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 mb-1">Problem (समस्या)</label>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">{isEn ? "Problem" : "समस्या"}</label>
               <select 
                 value={selectedProblem} 
                 onChange={e => setSelectedProblem(e.target.value)}
                 className="w-full text-[11px] p-1.5 border border-slate-200 rounded outline-none bg-slate-50"
               >
-                <option value="">सर्व समस्या</option>
-                {ALL_PROBLEMS.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="">{isEn ? "All Problems" : "सर्व समस्या"}</option>
+                {ALL_PROBLEMS.map(c => <option key={c} value={c}>{getSingleLangLabel(c, isEn)}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 mb-1">Crops (पिके)</label>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">{isEn ? "Crops" : "पिके"}</label>
               <select 
                 value={selectedCrop} 
                 onChange={e => setSelectedCrop(e.target.value)}
                 className="w-full text-[11px] p-1.5 border border-slate-200 rounded outline-none bg-slate-50"
               >
-                <option value="">All Crops</option>
-                {ALL_CROPS.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="">{isEn ? "All Crops" : "सर्व पिके"}</option>
+                {ALL_CROPS.map(c => <option key={c} value={c}>{getSingleLangLabel(c, isEn)}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 mb-1">Type</label>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">{isEn ? "Type" : "प्रकार"}</label>
               <select 
                 value={selectedType} 
                 onChange={e => setSelectedType(e.target.value)}
                 className="w-full text-[11px] p-1.5 border border-slate-200 rounded outline-none bg-slate-50"
               >
-                <option value="">सर्व प्रकार</option>
-                {ALL_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="">{isEn ? "All Types" : "सर्व प्रकार"}</option>
+                {ALL_TYPES.map(c => <option key={c} value={c}>{getSingleLangLabel(c, isEn)}</option>)}
               </select>
             </div>
           </div>
@@ -343,7 +357,7 @@ export default memo(function ProductList({
 
       {filteredProducts.length === 0 ? (
         <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-slate-200 mt-4 text-slate-500">
-          कोणतीही उत्पादने आढळली नाहीत.
+          {isEn ? "No products found." : "कोणतीही उत्पादने आढळली नाहीत."}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -367,11 +381,9 @@ export default memo(function ProductList({
               >
                 {isHighlighted && (
                   <div className="absolute top-0 right-0 bg-emerald-600 text-white text-[9px] font-black px-2 py-1 rounded-bl-lg shadow-sm flex items-center gap-0.5 animate-pulse">
-                    जतन केलेले
+                    {isEn ? "Saved" : "जतन केलेले"}
                   </div>
                 )}
-                
-
 
                 <div className="flex justify-between items-start mb-2 mt-1">
                   <button 
@@ -380,11 +392,11 @@ export default memo(function ProductList({
                   >
                     <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5 flex-wrap">
                       <span className="text-blue-700 group-hover:text-blue-800 group-hover:underline underline-offset-2 transition-all">
-                        {formatDualDisplay(product.brandName?.replace(/\s?\(.*?\)/, ""), product.marathiName || product.brandName?.match(/\((.*?)\)/)?.[1] || "")}
+                        {formatDualDisplay(product.brandName?.replace(/\s?\(.*?\)/, ""), product.marathiName || product.brandName?.match(/\((.*?)\)/)?.[1] || "", language)}
                       </span>
                       {product.isNewMolecule && (
                         <span className="inline-flex items-center gap-0.5 bg-amber-50 text-amber-700 text-[8px] font-black px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-wider leading-none shadow-sm h-3.5">
-                          ⭐ नवीन (New)
+                          {isEn ? "⭐ New" : "⭐ नवीन"}
                         </span>
                       )}
                     </h3>
@@ -398,20 +410,20 @@ export default memo(function ProductList({
                           className="px-2 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold rounded hover:bg-amber-200 transition-colors"
                           title="Verify / Approve"
                         >
-                          Verify
+                          {isEn ? "Verify" : "पडताळणी"}
                         </button>
                       )}
                       <button
                         onClick={() => onEditProduct(originalIndex)}
                         className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors border border-transparent hover:border-blue-100"
-                        title="Edit"
+                        title={isEn ? "Edit" : "संपादित करा"}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
                       </button>
                       <button
                         onClick={() => onDeleteProduct(originalIndex)}
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors border border-transparent hover:border-red-100"
-                        title="Delete"
+                        title={isEn ? "Delete" : "हटवा"}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                       </button>
@@ -421,62 +433,62 @@ export default memo(function ProductList({
 
                 <div className="mt-2 space-y-1.5">
                   <p className="text-[10px] text-slate-700 flex justify-between gap-2">
-                    <span className="font-bold text-slate-500 shrink-0">Company –</span>
+                    <span className="font-bold text-slate-500 shrink-0">{isEn ? "Company –" : "कंपनी –"}</span>
                     <span className="font-medium text-right">{product.companyName}</span>
                   </p>
                   
                   <p className="text-[10px] text-slate-700 flex justify-between gap-2">
-                    <span className="font-bold text-slate-500 shrink-0">Category –</span>
-                    <span className="font-medium text-right">{product.category}</span>
+                    <span className="font-bold text-slate-500 shrink-0">{isEn ? "Category –" : "श्रेणी –"}</span>
+                    <span className="font-medium text-right">{getSingleLangLabel(product.category, isEn)}</span>
                   </p>
 
                   {product.modeOfAction && (
                     <p className="text-[10px] text-slate-700 flex justify-between gap-2">
-                      <span className="font-bold text-slate-500 shrink-0">Mode of Action –</span>
-                      <span className="font-medium text-right">{product.modeOfAction}</span>
+                      <span className="font-bold text-slate-500 shrink-0">{isEn ? "Mode of Action –" : "कृती पद्धत –"}</span>
+                      <span className="font-medium text-right">{getSingleLangLabel(product.modeOfAction, isEn)}</span>
                     </p>
                   )}
 
                   {product.composition && (
                     <div className="pt-1.5 border-t border-slate-50">
-                      <p className="text-[10px] font-bold text-emerald-700 mb-0.5">Composition –</p>
+                      <p className="text-[10px] font-bold text-emerald-700 mb-0.5">{isEn ? "Composition –" : "घटक –"}</p>
                       <p className="text-[10px] text-emerald-800 font-medium leading-tight">
-                        {product.composition}
+                        {isEn ? product.composition : translateCompositionToMarathi(product.composition)}
                       </p>
                     </div>
                   )}
 
                   {product.targetCrops && (
                     <p className="text-[10px] text-slate-700 leading-tight">
-                      <span className="font-bold text-slate-500">Recommended Crops –</span> {product.targetCrops}
+                      <span className="font-bold text-slate-500">{isEn ? "Recommended Crops –" : "शिफारस पिके –"}</span> {product.targetCrops}
                     </p>
                   )}
 
                   {(product.targetPests || product.targetDiseases) && (
                     <p className="text-[10px] text-slate-700 leading-tight">
-                      <span className="font-bold text-slate-500">Target Pest / Disease –</span> {product.targetPests || product.targetDiseases}
+                      <span className="font-bold text-slate-500">{isEn ? "Target Pest / Disease –" : "कीड / रोग नियंत्रण –"}</span> {product.targetPests || product.targetDiseases}
                     </p>
                   )}
 
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 pt-1.5 border-t border-slate-50">
                     {product.doseSpray && (
                       <p className="text-[10px] text-slate-700">
-                        <span className="font-bold text-slate-500 block">Spray Dose –</span> {product.doseSpray}
+                        <span className="font-bold text-slate-500 block">{isEn ? "Spray Dose –" : "फवारणी मात्रा –"}</span> {product.doseSpray}
                       </p>
                     )}
                     {product.doseDrip && (
                       <p className="text-[10px] text-slate-700">
-                        <span className="font-bold text-slate-500 block">Drip Dose –</span> {product.doseDrip}
+                        <span className="font-bold text-slate-500 block">{isEn ? "Drip Dose –" : "ठिबक मात्रा –"}</span> {product.doseDrip}
                       </p>
                     )}
                     {product.doseDrenching && (
                       <p className="text-[10px] text-slate-700">
-                        <span className="font-bold text-slate-500 block">Drenching Dose –</span> {product.doseDrenching}
+                        <span className="font-bold text-slate-500 block">{isEn ? "Drenching Dose –" : "आळवणी मात्रा –"}</span> {product.doseDrenching}
                       </p>
                     )}
                     {product.doseBasal && (
                       <p className="text-[10px] text-slate-700">
-                        <span className="font-bold text-slate-500 block">Basal Dose –</span> {product.doseBasal}
+                        <span className="font-bold text-slate-500 block">{isEn ? "Basal Dose –" : "जमिनीत देण्याची मात्रा –"}</span> {product.doseBasal}
                       </p>
                     )}
                   </div>
@@ -493,7 +505,7 @@ export default memo(function ProductList({
             onClick={() => setPageSize(prev => prev + 50)}
             className="px-8 py-3 bg-white border border-slate-200 text-slate-600 font-black text-xs rounded-xl shadow-sm hover:bg-slate-50 transition-colors uppercase tracking-widest"
           >
-            आणखी उत्पादने पहा (Show More Products)
+            {isEn ? "Show More Products" : "आणखी उत्पादने पहा"}
           </button>
         </div>
       )}

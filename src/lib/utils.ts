@@ -309,15 +309,48 @@ export function translateMarathiToEnglish(text: string): string {
   return translated.charAt(0).toUpperCase() + translated.slice(1);
 }
 
-export function formatDualDisplay(english: string, marathi: string): string {
-  if (!english && !marathi) return "Information Unavailable (माहिती उपलब्ध नाही)";
-  if (!english) return marathi;
-  if (!marathi || english.toLowerCase() === marathi.toLowerCase()) return english;
+export function getSingleLangLabel(text: string, isEn: boolean): string {
+  if (!text) return "";
+  const match = text.match(/^(.*?)\s*\((.*?)\)$/);
+  if (!match) return text;
+  const part1 = match[1].trim();
+  const part2 = match[2].trim();
   
-  // If the string already contains parentheses, don't double wrap
-  if (english.includes("(") && english.includes(")")) return english;
+  const isPart1Devanagari = /[\u0900-\u097F]/.test(part1);
+  const isPart2Devanagari = /[\u0900-\u097F]/.test(part2);
   
-  return `${english} (${marathi})`;
+  if (isPart1Devanagari && !isPart2Devanagari) {
+    return isEn ? part2 : part1;
+  }
+  if (!isPart1Devanagari && isPart2Devanagari) {
+    return isEn ? part1 : part2;
+  }
+  return isEn ? part2 : part1;
+}
+
+export function formatDualDisplay(english: string, marathi: string, language?: "mr" | "en"): string {
+  const isEn = language === "en" || (!language && typeof localStorage !== "undefined" && localStorage.getItem("vionex-app-language") === "en");
+  
+  if (isEn) {
+    if (english) {
+      const clean = english.replace(/\s*\([^\)]*[\u0900-\u097F]+[^\)]*\)/g, "").trim();
+      if (clean && !/[\u0900-\u097F]/.test(clean)) return clean;
+    }
+    const fromMr = translateMarathiToEnglish(marathi || english);
+    if (fromMr) return fromMr;
+    return english || marathi || "Unavailable";
+  } else {
+    if (marathi && /[\u0900-\u097F]/.test(marathi)) {
+      return marathi.replace(/\s*\([a-zA-Z\s]+\)/g, "").trim();
+    }
+    if (english) {
+      const match = english.match(/[\u0900-\u097F\s]+/);
+      if (match && match[0].trim()) return match[0].trim();
+      const fromEn = translateEnglishToMarathi(english);
+      if (fromEn) return fromEn;
+    }
+    return marathi || english || "माहिती उपलब्ध नाही";
+  }
 }
 
 export function translateEnglishToMarathi(text: string): string {
@@ -374,12 +407,13 @@ export function translateEnglishToMarathi(text: string): string {
   return "";
 }
 
-export function getDoseLabel(method: string): string {
+export function getDoseLabel(method: string, language?: "mr" | "en"): string {
+  const isEn = language === "en" || (!language && typeof localStorage !== "undefined" && localStorage.getItem("vionex-app-language") === "en");
   const m = method?.toLowerCase() || "";
-  if (m.includes("drip") || m.includes("ठिबक")) return "Drip Dose (ठिबक मात्रा)";
-  if (m.includes("drench") || m.includes("आळवणी")) return "Drenching Dose (आळवणी मात्रा)";
-  if (m.includes("basal") || m.includes("जमिनीत")) return "Basal Dose (जमिनीत देण्याची मात्रा)";
-  return "Spray Dose (फवारणी मात्रा)";
+  if (m.includes("drip") || m.includes("ठिबक")) return isEn ? "Drip Dose" : "ठिबक मात्रा";
+  if (m.includes("drench") || m.includes("आळवणी")) return isEn ? "Drenching Dose" : "आळवणी मात्रा";
+  if (m.includes("basal") || m.includes("जमिनीत")) return isEn ? "Basal Dose" : "जमिनीत देण्याची मात्रा";
+  return isEn ? "Spray Dose" : "फवारणी मात्रा";
 }
 
 /**

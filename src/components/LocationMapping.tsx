@@ -30,6 +30,8 @@ import { useMasterLocations } from "../hooks/useMasterLocations";
 import { Dealer } from "../types";
 import { COMPANY_NAME, COMPANY_INITIALS, COMPANY_ADDRESS, COMPANY_PHONE } from "../lib/config";
 import { getVillagesForTaluka } from "../lib/maharashtra-locations";
+import { downloadFile } from "../lib/fileDownload";
+import { Capacitor } from "@capacitor/core";
 
 interface LocationMappingProps {
   onBack?: () => void;
@@ -291,7 +293,7 @@ export default function LocationMapping({ onBack, language = "mr", dealers, onDe
     };
   }, [mappedData, dealers, selectedDistrict, currentTaluka]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (mappedData.length === 0) return;
     const flatData = mappedData.flatMap((row, idx) => {
       if (row.villageDealers.length === 0) {
@@ -333,15 +335,12 @@ export default function LocationMapping({ onBack, language = "mr", dealers, onDe
       ...flatData.map(row => headers.map(h => `"${(row as any)[h] || ''}"`).join(','))
     ].join('\n');
     
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `locations_${currentTaluka || 'all'}_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    await downloadFile({
+      fileName: `locations_${currentTaluka || 'all'}_${new Date().toISOString().split('T')[0]}.csv`,
+      data: csvContent,
+      mimeType: 'text/csv;charset=utf-8;',
+      dialogTitle: 'गावांची यादी डाउनलोड / शेअर करा (Locations CSV)',
+    });
   };
 
   const handleAddVillage = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -453,7 +452,13 @@ export default function LocationMapping({ onBack, language = "mr", dealers, onDe
                     <Download className="w-3.5 h-3.5" />
                   </button>
                   <button 
-                    onClick={() => window.print()} 
+                    onClick={() => {
+                      if (Capacitor.isNativePlatform()) {
+                        handleExport();
+                      } else {
+                        window.print();
+                      }
+                    }} 
                     className="p-1 flex items-center gap-1 text-slate-500 hover:bg-slate-100 rounded-md transition-colors text-xs font-bold"
                     title="Print / PDF"
                   >

@@ -58,6 +58,18 @@ async function setupPushNotifications() {
   }
 }
 
+// Initialize Theme from localStorage
+try {
+  const savedTheme = localStorage.getItem("vionex-app-theme");
+  if (savedTheme === "dark") {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+} catch (e) {
+  console.warn("Theme init error:", e);
+}
+
 setupPushNotifications();
 
 const getParam = (key: string) => {

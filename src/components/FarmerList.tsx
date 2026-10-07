@@ -4,6 +4,8 @@ import ConfirmationModal from "./ConfirmationModal";
 import { motion } from "motion/react";
 import { registerBackHandler } from "../lib/backNavigation";
 import { getCropPlotLabel } from "../lib/utils";
+import { downloadFile } from "../lib/fileDownload";
+import { Capacitor } from "@capacitor/core";
 
 interface Farmer {
   id?: string;
@@ -13,6 +15,7 @@ interface Farmer {
   taluka: string;
   village: string;
   dealer?: string;
+  alternateMobile?: string;
   crop?: string;
   crops?: any[];
   createdBy?: string;
@@ -88,6 +91,32 @@ export default function FarmerList({
     );
   }
 
+  const handleExportOrPrint = async () => {
+    if (Capacitor.isNativePlatform()) {
+      if (filteredFarmers.length === 0) return;
+      const headers = ["नाव", "मोबाईल", "पर्यायी मोबाईल", "गाव", "तालुका", "जिल्हा", "विक्रेता (Dealer)", "पिके"];
+      const rows = filteredFarmers.map(f => [
+        `"${f.name || ''}"`,
+        `"${f.mobile || ''}"`,
+        `"${f.alternateMobile || ''}"`,
+        `"${f.village || ''}"`,
+        `"${f.taluka || ''}"`,
+        `"${f.district || ''}"`,
+        `"${f.dealer || ''}"`,
+        `"${(f.crops || []).map((c: any) => c.cropName || c.crop || '').join('; ')}"`
+      ].join(','));
+      const csvContent = [headers.join(','), ...rows].join('\n');
+      await downloadFile({
+        fileName: `farmers_list_${new Date().toISOString().split('T')[0]}.csv`,
+        data: csvContent,
+        mimeType: 'text/csv;charset=utf-8;',
+        dialogTitle: 'शेतकरी यादी सेव्ह / शेअर करा (Farmers List)',
+      });
+    } else {
+      window.print();
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center px-1">
@@ -96,12 +125,12 @@ export default function FarmerList({
         </h2>
         <div className="flex items-center gap-2 print:hidden">
           <button
-            onClick={() => window.print()}
+            onClick={handleExportOrPrint}
             className="flex items-center gap-1 text-[10px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded font-bold hover:bg-slate-200 transition uppercase tracking-wider"
             title="Download PDF / Print"
           >
             <Printer className="w-3.5 h-3.5" />
-            PDF
+            PDF / Export
           </button>
           {canManage && permissions?.farmerAdd !== false && (
             <button

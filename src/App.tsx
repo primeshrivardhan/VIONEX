@@ -3246,6 +3246,23 @@ export default function App() {
                   canInstall={!!deferredPrompt}
                   onNavigate={handleNavClick}
                   currentUser={currentUser}
+                  onUpdateCurrentUser={(updated) => {
+                    setCurrentUser(updated);
+                    try {
+                      localStorage.setItem("vionex-current-user", JSON.stringify(updated));
+                    } catch (e) {
+                      console.error("Failed to persist updated user to localStorage:", e);
+                    }
+                  }}
+                  language={language}
+                  onLanguageChange={(newLang) => {
+                    setLanguage(newLang);
+                    try {
+                      localStorage.setItem("vionex-app-language", newLang);
+                    } catch (e) {
+                      console.error("Failed to persist language to localStorage:", e);
+                    }
+                  }}
                 />
               </LocalErrorBoundary>
             ) : (

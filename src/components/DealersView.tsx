@@ -10,6 +10,8 @@ import { getSmartLocation } from "../lib/geo-helper";
 import { db } from "../lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { registerBackHandler } from "../lib/backNavigation";
+import { downloadFile } from "../lib/fileDownload";
+import { Capacitor } from "@capacitor/core";
 
 const BUSINESS_TYPES = [
   "Proprietorship (मालकी हक्क)",
@@ -613,6 +615,33 @@ export default function DealersView({
     });
   };
 
+  const handleExportOrPrint = async () => {
+    if (Capacitor.isNativePlatform()) {
+      if (filteredDealers.length === 0) return;
+      const headers = ["दुकान/फर्मचे नाव (Shop)", "विक्रेत्याचे नाव (Dealer)", "मोबाईल", "गाव", "तालुका", "जिल्हा", "पिनकोड", "पत्ता", "स्थिती"];
+      const rows = filteredDealers.map(d => [
+        `"${d.shopName || ''}"`,
+        `"${d.name || ''}"`,
+        `"${d.mobile || ''}"`,
+        `"${d.village || ''}"`,
+        `"${d.taluka || ''}"`,
+        `"${d.district || ''}"`,
+        `"${d.pincode || ''}"`,
+        `"${(d.address || '').replace(/"/g, '""')}"`,
+        `"${d.approvalStatus || 'Active'}"`
+      ].join(','));
+      const csvContent = [headers.join(','), ...rows].join('\n');
+      await downloadFile({
+        fileName: `dealers_list_${new Date().toISOString().split('T')[0]}.csv`,
+        data: csvContent,
+        mimeType: 'text/csv;charset=utf-8;',
+        dialogTitle: 'विक्रेते यादी सेव्ह / शेअर करा (Dealers List)',
+      });
+    } else {
+      window.print();
+    }
+  };
+
   return (
     <div className="p-4 mx-auto max-w-7xl">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 sm:p-4 mb-4 flex justify-between items-center gap-3">
@@ -623,7 +652,7 @@ export default function DealersView({
         {(!isFarmerView && permissions?.dealerAdd !== false) && (
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
-              onClick={() => window.print()}
+              onClick={handleExportOrPrint}
               title="Download PDF / Print"
               className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 hover:text-slate-800 transition-all border border-slate-200 active:scale-95"
             >

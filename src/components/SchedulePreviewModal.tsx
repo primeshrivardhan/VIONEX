@@ -3,8 +3,10 @@ import { toPng } from 'html-to-image';
 import { format, parseISO, addDays } from 'date-fns';
 import { X, Download, Sprout } from 'lucide-react';
 import { translateDoseToEnglish, formatDualDisplay, translateCompositionToMarathi, translateMarathiToEnglish, getDoseLabel, formatModeOfAction } from '../lib/utils';
+import { downloadFile } from '../lib/fileDownload';
 
-export default function SchedulePreviewModal({ schedules, farmer, cropName, cropMeta, onClose }: any) {
+export default function SchedulePreviewModal({ schedules, farmer, cropName, cropMeta, onClose, language = "mr" }: any) {
+  const isEn = language === "en";
   const previewRef = useRef<HTMLDivElement>(null);
 
   const getMarathiDayOfWeek = (dateStr: string) => {
@@ -94,13 +96,16 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
         height: node.scrollHeight,
         style: { margin: '0' }
       });
-      const link = document.createElement("a");
-      link.download = `schedule-${farmer?.name || "farmer"}.png`;
-      link.href = dataUrl;
-      link.click();
+      await downloadFile({
+        fileName: `schedule-${farmer?.name || "farmer"}.png`,
+        data: dataUrl,
+        mimeType: 'image/png',
+        dialogTitle: isEn ? "Save / Share Schedule" : "शेड्युल सेव्ह / शेअर करा",
+        language,
+      });
     } catch (err) {
       console.error(err);
-      alert("Failed to download image.");
+      alert(isEn ? "Failed to download image." : "इमेज डाउनलोड अयशस्वी.");
     }
   };
 
@@ -109,7 +114,7 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
       {/* Modal Actions */}
       <div className="w-full max-w-4xl flex justify-end gap-3 mb-4">
         <button onClick={handleDownload} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:bg-emerald-500 transition-colors">
-          <Download className="w-5 h-5" /> डाउनलोड करा
+          <Download className="w-5 h-5" /> {isEn ? "Download" : "डाउनलोड करा"}
         </button>
         <button onClick={onClose} className="p-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors">
           <X className="w-5 h-5" />
@@ -135,7 +140,7 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
               <div>
                 {farmer?.dealer && (
                   <p className="text-emerald-600 text-[11px] font-black tracking-widest uppercase mb-1">
-                    अधिकृत विक्रेते <span className="text-emerald-500/70">(AUTHORIZED DEALER)</span>
+                    {isEn ? "AUTHORIZED DEALER" : "अधिकृत विक्रेते"}
                   </p>
                 )}
                 <h1 className="text-[26px] font-black text-slate-800 tracking-tight leading-none mb-1.5 uppercase">
@@ -150,32 +155,46 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
             
             {/* Right Col: Farmer Info */}
             <div className="flex-[1.2] relative z-10">
-              <p className="text-slate-400 text-[11px] font-black tracking-widest uppercase mb-2">शेतकरी व पीक तपशील <span className="opacity-70">(FARMER & CROP DETAILS)</span></p>
+              <p className="text-slate-400 text-[11px] font-black tracking-widest uppercase mb-2">
+                {isEn ? "FARMER & CROP DETAILS" : "शेतकरी व पीक तपशील"}
+              </p>
               <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-5">{farmer?.name || "-"}</h2>
               
               <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">गाव <span className="opacity-70">(VILLAGE)</span></p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">
+                    {isEn ? "VILLAGE" : "गाव"}
+                  </p>
                   <p className="font-bold text-slate-700">{farmer?.village || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">संपर्क <span className="opacity-70">(PHONE)</span></p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">
+                    {isEn ? "PHONE" : "संपर्क"}
+                  </p>
                   <p className="font-bold text-slate-700">{farmer?.mobile || "-"}</p>
                 </div>
                 <div className="bg-emerald-50/70 rounded-lg px-2.5 py-1.5 -ml-2.5">
-                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-0.5">पीक / वाण <span className="opacity-70">(CROP & VARIETY)</span></p>
+                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-0.5">
+                    {isEn ? "CROP & VARIETY" : "पीक / वाण"}
+                  </p>
                   <p className="font-bold text-emerald-900">{cropName} <span className="text-emerald-700">{cropMeta?.variety ? `(${cropMeta.variety})` : "(super)"}</span></p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">लागवड <span className="opacity-70">(PLANTATION)</span></p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">
+                    {isEn ? "PLANTATION" : "लागवड"}
+                  </p>
                   <p className="font-bold text-slate-700">{cropMeta?.plantationDate || cropMeta?.sowingDate || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">प्लॉट नंबर <span className="opacity-70">(PLOT NO)</span></p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">
+                    {isEn ? "PLOT NO" : "प्लॉट नंबर"}
+                  </p>
                   <p className="font-bold text-slate-700">-</p>
                 </div>
                 <div className="bg-blue-50/70 rounded-lg px-2.5 py-1.5 -ml-2.5">
-                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-0.5">दिनांक <span className="opacity-70">(DATE)</span></p>
+                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-0.5">
+                    {isEn ? "DATE" : "दिनांक"}
+                  </p>
                   <p className="font-bold text-blue-900">{format(new Date(), 'dd/MM/yyyy')}</p>
                 </div>
               </div>
@@ -198,8 +217,12 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
                         <span className="text-2xl text-[#c88d22]">⚲</span>
                       </div>
                       <div>
-                        <h4 className="text-[#a5700d] font-black text-[15px] mb-1">गॅप कालावधी - {item.gapDays} दिवस विश्रांती (REST PLAN)</h4>
-                        <p className="text-[#c29633] font-bold text-[13px]">दिवस {item.startDay} ते दिवस {item.endDay} पर्यंत गॅप.</p>
+                        <h4 className="text-[#a5700d] font-black text-[15px] mb-1">
+                          {isEn ? `Gap Period - ${item.gapDays} Days Rest` : `गॅप कालावधी - ${item.gapDays} दिवस विश्रांती`}
+                        </h4>
+                        <p className="text-[#c29633] font-bold text-[13px]">
+                          {isEn ? `Gap from Day ${item.startDay} to Day ${item.endDay}.` : `दिवस ${item.startDay} ते दिवस ${item.endDay} पर्यंत गॅप.`}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -209,7 +232,7 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
               const group = item.data;
               const dateObj = group.date ? parseISO(group.date) : null;
               const dateText = dateObj ? format(dateObj, 'dd/MM/yyyy') : "-";
-              const dayOfWeek = dateObj ? getMarathiDayOfWeek(group.date) : "-";
+              const dayOfWeek = isEn ? (dateObj ? format(dateObj, 'EEEE') : "-") : (dateObj ? getMarathiDayOfWeek(group.date) : "-");
               const isMultiple = group.schedules.length > 1;
 
               return (
@@ -220,7 +243,7 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
                       {group.day}
                     </div>
                     <div className="text-[11px] font-black text-slate-800 tracking-wide bg-[#f9fafb] w-full text-center">
-                      {dateObj ? `${dateObj.getDate()} ${getMarathiMonth(group.date)}` : ""}
+                      {dateObj ? (isEn ? format(dateObj, 'd MMM') : `${dateObj.getDate()} ${getMarathiMonth(group.date)}`) : ""}
                     </div>
                   </div>
 
@@ -233,12 +256,12 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
                           : (getEnglishMethod(group.schedules[0].method) === 'Drip' ? 'border-blue-100 bg-white' : 'border-emerald-100 bg-white'))
                   }`}>
                     {isMultiple && (
-                      <div className="mb-4 bg-amber-505 text-white bg-amber-500 text-[11px] font-black px-4 py-1.5 rounded-2xl flex items-center gap-1.5 uppercase tracking-wide">
-                        <span>💡 या दिवशी स्प्रे + ड्रीप दोन्ही नियोजन एकत्र आहे (डबल शेड्युल)</span>
+                      <div className="mb-4 bg-amber-500 text-white text-[11px] font-black px-4 py-1.5 rounded-2xl flex items-center gap-1.5 uppercase tracking-wide">
+                        <span>{isEn ? "💡 Dual Schedule: Spray + Drip combined today" : "💡 या दिवशी फवारणी + ठिबक दोन्ही नियोजन एकत्र आहे"}</span>
                       </div>
                     )}
                     <h3 className="text-lg font-black mb-5 tracking-tight text-slate-800">
-                      दिनांक: {dateText} - {dayOfWeek} - Variety: {cropMeta?.variety || "super"}
+                      {isEn ? `Date: ${dateText} - ${dayOfWeek} - Variety: ${cropMeta?.variety || "All"}` : `दिनांक: ${dateText} - ${dayOfWeek} - वाण: ${cropMeta?.variety || "सर्व"}`}
                     </h3>
                     
                     <div className="space-y-6 divide-y divide-slate-100">
@@ -252,13 +275,13 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
                           <div key={sIdx} className={`${sIdx > 0 ? 'pt-5' : ''} space-y-4`}>
                             <h4 className={`text-sm font-black flex items-center gap-2 ${headerColor}`}>
                               <span className={`w-2 h-2 rounded-full ${isDripItem ? 'bg-blue-500' : (isGapItem ? 'bg-amber-500' : 'bg-emerald-500')}`}></span>
-                              {isGapItem ? "गॅप / विश्रांतीचा दिवस (Gap Day)" : (isDripItem ? "ठिबक नियोजन (Drip)" : schedItem.method === "आळवणी / ड्रिंचिंग" ? "आळवणी / ड्रिंचिंग (Drenching)" : "फवारणी नियोजन (Spray)")}
+                              {isGapItem ? (isEn ? "Gap Day" : "गॅप / विश्रांतीचा दिवस") : (isDripItem ? (isEn ? "Drip Schedule" : "ठिबक नियोजन") : schedItem.method === "आळवणी / ड्रिंचिंग" ? (isEn ? "Drenching Schedule" : "आळवणी / ड्रिंचिंग") : (isEn ? "Spray Schedule" : "फवारणी नियोजन"))}
                             </h4>
 
                             {isGapItem && (!schedItem.selectedProducts || schedItem.selectedProducts.length === 0) ? (
                               <div className="py-6 text-center border-2 border-dashed border-amber-200 rounded-3xl bg-amber-50/10">
-                                <p className="text-sm font-black text-amber-800">गॅप / विश्रांतीचा दिवस 😴</p>
-                                <p className="text-xs text-amber-600 mt-1 font-bold">आज कोणतेही औषध फवारणी किंवा ठिबकचे नियोजन करू नये.</p>
+                                <p className="text-sm font-black text-amber-800">{isEn ? "Rest Day 😴" : "गॅप / विश्रांतीचा दिवस 😴"}</p>
+                                <p className="text-xs text-amber-600 mt-1 font-bold">{isEn ? "No spray or drip application scheduled for today." : "आज कोणतेही औषध फवारणी किंवा ठिबकचे नियोजन करू नये."}</p>
                               </div>
                             ) : (
                               <div className="space-y-4">
@@ -269,15 +292,9 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
                                     <div key={pIdx} className="flex justify-between items-start gap-5 pb-5 border-b border-dashed border-slate-100 last:border-0 last:pb-0">
                                       <div>
                                         <h4 className="text-[17px] font-black text-slate-800 mb-1.5 flex items-baseline gap-1">
-                                          {formatDualDisplay(p.brandName, p.marathiName)}
+                                          {formatDualDisplay(p.brandName, p.marathiName, language)}
                                         </h4>
                                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-slate-600 font-bold">
-                                          {false && (p.activeIngredients || p.composition) && (
-                                            <span>
-                                              <span className="text-emerald-500 mr-1.5 font-bold">•</span>
-                                              Composition (घटक): {formatDualDisplay(p.compositionEnglish || p.activeIngredients || p.composition, translateCompositionToMarathi(p.activeIngredients || p.composition))}
-                                            </span>
-                                          )}
                                           {p.companyName && (
                                             <span>
                                               <span className="text-blue-500 mr-1.5 font-bold">•</span>
@@ -287,19 +304,19 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
                                           {p.formulation && p.formulation !== "लागू नाही" && p.formulation !== "माहिती उपलब्ध नाही" && (
                                             <span>
                                               <span className="text-purple-500 mr-1.5 font-bold">•</span>
-                                              Formulation (फॉर्म्युलेशन): {p.formulation}
+                                              {isEn ? "Formulation: " : "फॉर्म्युलेशन: "}{p.formulation}
                                             </span>
                                           )}
                                         </div>
                                         {p.modeOfAction && p.modeOfAction !== "लागू नाही" && p.modeOfAction !== "माहिती उपलब्ध नाही" && (
                                           <div className="text-[11px] font-semibold text-slate-600 mt-1">
-                                            <span className="font-extrabold text-slate-700">Mode of Action: </span>
+                                            <span className="font-extrabold text-slate-700">{isEn ? "Mode of Action: " : "कृती पद्धत: "}</span>
                                             <span>{formatModeOfAction(p.modeOfAction)}</span>
                                           </div>
                                         )}
                                       </div>
                                       <div className="shrink-0 text-right w-36">
-                                        <span className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">{getDoseLabel(schedItem.method)}</span>
+                                        <span className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5">{getDoseLabel(schedItem.method, language)}</span>
                                         <div className={`px-4 py-2 rounded-[14px] border text-center ${isDripItem ? 'bg-blue-50 border-blue-200' : 'bg-emerald-50 border-emerald-200'}`}>
                                           <span className={`text-[13px] font-black leading-tight block ${isDripItem ? 'text-blue-900' : 'text-emerald-900'}`}>{activeDose}</span>
                                         </div>
@@ -312,7 +329,7 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
 
                             {schedItem.notes && (
                               <div className="mt-2 p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[12px] text-slate-600 font-bold leading-relaxed italic">
-                                📝 Note (नोंद): {schedItem.notes}
+                                {isEn ? "📝 Note: " : "📝 नोंद: "}{schedItem.notes}
                               </div>
                             )}
                           </div>
@@ -329,7 +346,7 @@ export default function SchedulePreviewModal({ schedules, farmer, cropName, crop
           <div className="mt-16 pt-8 border-t-2 border-slate-100 flex justify-between items-end pb-4">
             <div>
               <h1 className="text-[32px] font-black tracking-tight text-slate-800 flex items-center gap-1 leading-none mb-1.5">
-                VIONEX <span className="text-emerald-600">(वी ऑ नेक्स)</span>
+                VIONEX {!isEn && <span className="text-emerald-600">(वी ऑ नेक्स)</span>}
               </h1>
               <p className="text-[11px] font-black tracking-[0.4em] text-slate-400 uppercase">VISION BEYOND LIMITS</p>
             </div>
