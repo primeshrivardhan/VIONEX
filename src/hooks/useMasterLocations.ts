@@ -92,7 +92,7 @@ export function useMasterLocations() {
       
       // We only load what is stored in the database. No online Gemini API fetching or static fallbacks.
 
-      // Self-Healing: Cross-Taluka and Duplicate Purge (Keep manual ones, only clean internal duplicates)
+      // Cross-Taluka and Duplicate filtering: deduplicate in-memory without deleting from Firestore
       const uniqueDataMap: Record<string, MasterLocation> = {};
       for (const loc of data) {
         const normTaluka = normalizeTalukaName(loc.taluka, loc.district);
@@ -104,8 +104,7 @@ export function useMasterLocations() {
           }
           uniqueDataMap[key] = loc;
         } else {
-           console.log(`[Self-Healing] Deleting internal duplicate "${loc.village}" in "${loc.taluka}"`);
-           deleteDoc(doc(db, 'master-locations', loc.id)).catch(console.error);
+           // Automatic deletion disabled per safety audit: keep Firestore data intact, filter duplicates in-memory only
         }
       }
       data = Object.values(uniqueDataMap);
@@ -141,9 +140,7 @@ export function useMasterLocations() {
           villageMarathi: "बलवडी",
           updatedAt: Date.now()
         };
-        // Save to Firestore asynchronously
-        saveItem('master-locations', restoredLoc, code).catch(console.error);
-        // Add to currently loaded data
+        // Add to currently loaded data in-memory without background writes to Firestore
         data.push(restoredLoc);
       }
 
@@ -160,9 +157,7 @@ export function useMasterLocations() {
           villageMarathi: "बलवडी भाळवणी",
           updatedAt: Date.now()
         };
-        // Save to Firestore asynchronously
-        saveItem('master-locations', restoredLoc, code).catch(console.error);
-        // Add to currently loaded data
+        // Add to currently loaded data in-memory without background writes to Firestore
         data.push(restoredLoc);
       }
 

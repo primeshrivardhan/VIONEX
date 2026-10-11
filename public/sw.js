@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vionex-v7';
+const CACHE_NAME = 'vionex-v10';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -8,7 +8,13 @@ const ASSETS_TO_CACHE = [
   '/icon.svg'
 ];
 
+const isNativeApp = self.location.hostname === 'localhost' || self.location.origin.includes('capacitor:');
+
 self.addEventListener('install', (event) => {
+  if (isNativeApp) {
+    self.skipWaiting();
+    return;
+  }
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       // Cache basic shell
@@ -19,6 +25,14 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  if (isNativeApp) {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+        .then(() => self.registration.unregister())
+        .then(() => self.clients.claim())
+    );
+    return;
+  }
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -34,6 +48,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (isNativeApp) return; // Never intercept local native requests
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(self.location.origin)) return;
 

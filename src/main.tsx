@@ -7,18 +7,38 @@ import StandaloneDealerForm from "./components/StandaloneDealerForm.tsx";
 import PublicFormGateway from "./components/PublicFormGateway.tsx";
 import "./index.css";
 
-// Register Service Worker for PWA Support
+// Service Worker handling
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((reg) => {
-        console.log("Service Worker registered successfully:", reg.scope);
-      })
-      .catch((err) => {
-        console.error("Service Worker registration failed:", err);
-      });
-  });
+  const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+  if (isNative) {
+    // On native Capacitor, assets are loaded directly from the local APK via WebViewAssetLoader (100% offline).
+    // Running a PWA Service Worker inside Capacitor caches stale bundles across APK updates.
+    // Unregister any active Service Workers and clear CacheStorage on native platform:
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister().catch(() => {});
+      }
+    }).catch(() => {});
+    if ("caches" in window) {
+      caches.keys().then((names) => {
+        for (const name of names) {
+          caches.delete(name).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  } else {
+    // On Web / PWA, register service worker
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          console.log("Service Worker registered successfully:", reg.scope);
+        })
+        .catch((err) => {
+          console.error("Service Worker registration failed:", err);
+        });
+    });
+  }
 }
 
 // Register Capacitor Push Notifications if running natively

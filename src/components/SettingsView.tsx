@@ -984,11 +984,14 @@ export default function SettingsView({
       </div>
 
       {/* ===================== FOOTER ===================== */}
-      <div className="text-center pt-2">
-        <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">
-          VIONEX Crop Care • v1.2.0 • Build 2026.10
+      <div className="text-center pt-2 pb-4">
+        <p className="text-[10px] text-slate-500 font-bold tracking-wider uppercase">
+          VIONEX Crop Care • v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.2.2"} • {typeof __BUILD_COMMIT__ !== "undefined" ? __BUILD_COMMIT__ : "dev"}
         </p>
-        <p className="text-[9px] text-slate-300 font-medium">
+        <p className="text-[10px] text-purple-600 font-semibold tracking-wide mt-0.5">
+          📅 Build: {typeof __BUILD_TIME__ !== "undefined" ? __BUILD_TIME__ : "Live Dev"} IST
+        </p>
+        <p className="text-[9px] text-slate-400 font-medium mt-0.5">
           Smart Farming Platform • 100% Offline Architecture
         </p>
       </div>

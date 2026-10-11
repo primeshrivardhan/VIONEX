@@ -2779,6 +2779,28 @@ export default function App() {
                     });
 
                     if (existingProduct) {
+                      const matchedName =
+                        existingProduct.brandName || existingProduct.name || "उत्पादन";
+                      const matchedCompany = existingProduct.companyName
+                        ? ` (${existingProduct.companyName})`
+                        : "";
+                      const isEnLang = language === "en";
+
+                      const confirmed = window.confirm(
+                        isEnLang
+                          ? `A matching product "${matchedName}"${matchedCompany} already exists. Do you want to update the existing record?`
+                          : `"${matchedName}"${matchedCompany} हे उत्पादन आधीपासून अस्तित्वात आहे. तुम्हाला अस्तित्वात असलेल्या नोंदीमध्ये सुधारणा (Update) करायची आहे का?`
+                      );
+
+                      if (!confirmed) {
+                        alert(
+                          isEnLang
+                            ? `Save aborted. A product named "${matchedName}" already exists. Please change the brand name or company name to save as a new product.`
+                            : `जतन करणे रद्द केले. "${matchedName}" हे उत्पादन आधीपासून अस्तित्वात आहे. कृपया नवीन उत्पादन म्हणून जतन करण्यासाठी ब्रँड किंवा कंपनीचे नाव बदला.`
+                        );
+                        return;
+                      }
+
                       const currentVersion = existingProduct.version || 1;
                       const updatedProduct = {
                         ...existingProduct,
@@ -2947,7 +2969,8 @@ export default function App() {
                   <ProductList
                     products={displayProducts}
                     highlightedProductId={highlightedProductId}
-                    canManage={isAdminOrAdminRole || currentUser?.type === "user"}
+                    canManage={isAdminOrAdminRole || (currentUser?.type === "user" && currentUser?.data?.role !== "viewer" && currentUser?.data?.role !== "sales")}
+                    isAdmin={isAdminOrAdminRole}
                     language={language}
                     onAddProduct={() => navigateTo("add-product")}
                     onEditProduct={(index) => {
@@ -2981,6 +3004,18 @@ export default function App() {
                         "product",
                         productName,
                         product.id,
+                      );
+                    }}
+                    onDeleteProductById={async (id) => {
+                      const product = displayProducts.find((p) => p.id === id);
+                      const productName =
+                        product?.brandName || product?.name || "उत्पादन";
+                      await deleteItem("products", id);
+                      logUserActivity(
+                        "delete",
+                        "product",
+                        productName,
+                        id,
                       );
                     }}
                   />
