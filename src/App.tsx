@@ -2628,80 +2628,88 @@ export default function App() {
                 }
                 farmers={farmers}
                 dealers={displayDealers}
-                onSave={(data) => {
-                  if (editingFarmerIndex !== null) {
-                    const originalFarmer = displayFarmersForSchedule[editingFarmerIndex];
-                    const id = originalFarmer.id;
-                    const saveData = {
-                      ...data,
-                      createdBy: originalFarmer.createdBy || data.createdBy || currentAuthUid,
-                      createdByUserId: originalFarmer.createdByUserId || data.createdByUserId || currentAuthUid,
-                      approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
-                    };
-                    saveItem("farmers", saveData, id);
-                    logUserActivity("update", "farmer", saveData.name, id);
-                  } else {
-                    // Check if duplicate farmer already exists based on mobile or name/location comparison (even if isDeleted is true)
-                    const existingFarmer = (farmers || []).find((f) => {
-                      if (!f) return false;
-                      
-                      // Match by mobile
-                      const fMob = f.mobile ? String(f.mobile).replace(/\D/g, "").slice(-10) : "";
-                      const dMob = data.mobile ? String(data.mobile).replace(/\D/g, "").slice(-10) : "";
-                      const isMobileDuplicate = fMob && dMob && fMob.length >= 10 && fMob === dMob;
-
-                      // Match by name and location (village + taluka)
-                      const fName = f.name ? f.name.trim().toLowerCase() : "";
-                      const dName = data.name ? data.name.trim().toLowerCase() : "";
-                      const isNameDuplicate = fName && dName && fName === dName;
-
-                      const fVillage = f.village ? f.village.trim().toLowerCase() : "";
-                      const dVillage = data.village ? data.village.trim().toLowerCase() : "";
-                      
-                      const fTaluka = f.taluka ? f.taluka.trim().toLowerCase() : "";
-                      const dTaluka = data.taluka ? data.taluka.trim().toLowerCase() : "";
-
-                      const isLocationDuplicate = fVillage && dVillage && fVillage === dVillage && fTaluka && dTaluka && fTaluka === dTaluka;
-
-                      return isMobileDuplicate || (isNameDuplicate && isLocationDuplicate);
-                    });
-
-                    if (existingFarmer) {
-                      const currentLinks = existingFarmer.linkedUsers || [];
-                      if (!currentLinks.includes(currentAuthUid)) {
-                        currentLinks.push(currentAuthUid);
-                      }
-                      const updatedFarmer = {
-                        ...existingFarmer,
-                        ...data,
-                        linkedUsers: currentLinks,
-                        createdBy: existingFarmer.createdBy || currentAuthUid,
-                        createdByUserId: existingFarmer.createdByUserId || existingFarmer.createdBy || currentAuthUid,
-                        id: existingFarmer.id,
-                        isDeleted: false
-                      };
-                      saveItem("farmers", updatedFarmer, existingFarmer.id);
-                      logUserActivity("update", "farmer", updatedFarmer.name, existingFarmer.id);
-                    } else {
-                      const uniqueId = "farmer-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+                onSave={async (data) => {
+                  try {
+                    if (editingFarmerIndex !== null) {
+                      const originalFarmer = displayFarmersForSchedule[editingFarmerIndex];
+                      const id = originalFarmer.id;
                       const saveData = {
                         ...data,
-                        id: uniqueId,
-                        createdBy: currentAuthUid,
-                        createdByUserId: currentAuthUid,
+                        createdBy: originalFarmer.createdBy || data.createdBy || currentAuthUid,
+                        createdByUserId: originalFarmer.createdByUserId || data.createdByUserId || currentAuthUid,
                         approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
                       };
-                      saveItem("farmers", saveData, uniqueId).then((newId) => {
+                      await saveItem("farmers", saveData, id);
+                      logUserActivity("update", "farmer", saveData.name, id);
+                    } else {
+                      // Check if duplicate farmer already exists based on mobile or name/location comparison (even if isDeleted is true)
+                      const existingFarmer = (farmers || []).find((f) => {
+                        if (!f) return false;
+                        
+                        // Match by mobile
+                        const fMob = f.mobile ? String(f.mobile).replace(/\D/g, "").slice(-10) : "";
+                        const dMob = data.mobile ? String(data.mobile).replace(/\D/g, "").slice(-10) : "";
+                        const isMobileDuplicate = fMob && dMob && fMob.length >= 10 && fMob === dMob;
+
+                        // Match by name and location (village + taluka)
+                        const fName = f.name ? f.name.trim().toLowerCase() : "";
+                        const dName = data.name ? data.name.trim().toLowerCase() : "";
+                        const isNameDuplicate = fName && dName && fName === dName;
+
+                        const fVillage = f.village ? f.village.trim().toLowerCase() : "";
+                        const dVillage = data.village ? data.village.trim().toLowerCase() : "";
+                        
+                        const fTaluka = f.taluka ? f.taluka.trim().toLowerCase() : "";
+                        const dTaluka = data.taluka ? data.taluka.trim().toLowerCase() : "";
+
+                        const isLocationDuplicate = fVillage && dVillage && fVillage === dVillage && fTaluka && dTaluka && fTaluka === dTaluka;
+
+                        return isMobileDuplicate || (isNameDuplicate && isLocationDuplicate);
+                      });
+
+                      if (existingFarmer) {
+                        const currentLinks = existingFarmer.linkedUsers || [];
+                        if (!currentLinks.includes(currentAuthUid)) {
+                          currentLinks.push(currentAuthUid);
+                        }
+                        const updatedFarmer = {
+                          ...existingFarmer,
+                          ...data,
+                          linkedUsers: currentLinks,
+                          createdBy: existingFarmer.createdBy || currentAuthUid,
+                          createdByUserId: existingFarmer.createdByUserId || existingFarmer.createdBy || currentAuthUid,
+                          id: existingFarmer.id,
+                          isDeleted: false
+                        };
+                        await saveItem("farmers", updatedFarmer, existingFarmer.id);
+                        logUserActivity("update", "farmer", updatedFarmer.name, existingFarmer.id);
+                      } else {
+                        const uniqueId = "farmer-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+                        const saveData = {
+                          ...data,
+                          id: uniqueId,
+                          createdBy: currentAuthUid,
+                          createdByUserId: currentAuthUid,
+                          approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
+                        };
+                        const newId = await saveItem("farmers", saveData, uniqueId);
                         logUserActivity(
                           "create",
                           "farmer",
                           saveData.name,
                           newId || uniqueId,
                         );
-                      });
+                      }
                     }
+                    handleBack();
+                  } catch (err: any) {
+                    console.error("Farmer save failed:", err);
+                    alert(
+                      language === "en"
+                        ? `Failed to save farmer: ${err.message || "Permission or network error"}`
+                        : `शेतकरी जतन करताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                    );
                   }
-                  handleBack();
                 }}
                 onCancel={handleBack}
               />
@@ -2717,113 +2725,114 @@ export default function App() {
                     : undefined
                 }
                 products={displayProducts}
-                onSave={(data) => {
+                onSave={async (data) => {
                   const productName = data.brandName || data.name || "उत्पादन";
-                  if (editingProductIndex !== null) {
-                    const id = displayProducts[editingProductIndex].id;
-                    const currentVersion = displayProducts[editingProductIndex].version || 1;
-                    const saveData = {
-                      ...data,
-                      name: productName,
-                      version: currentVersion + 1,
-                      createdBy: data.createdBy || currentCreatorId,
-                      createdByUserId: data.createdByUserId || currentCreatorId,
-                      approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
-                    };
-                    saveItem("products", saveData, id);
-                    setHighlightedProductId(id);
-                    logUserActivity("update", "product", productName, id);
-                  } else {
-                    const pBrand = (data.brandName || data.name || "").trim().toLowerCase();
-                    const pCompany = (data.companyName || "").trim().toLowerCase();
-                    const pComp = (data.composition || data.activeIngredients || "").trim().toLowerCase();
-
-                    const cleanParts = (name: string) => {
-                      return name
-                        .split(/[\/\+\s]/)
-                        .map(part => part.trim().toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/gi, ""))
-                        .filter(part => part.length > 1);
-                    };
-
-                    const cleanComp = (comp: string) => {
-                      return comp.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, "")
-                        .replace("ww", "")
-                        .replace("sc", "")
-                        .replace("wp", "")
-                        .replace("wg", "")
-                        .replace("ec", "");
-                    };
-                    
-                    const cleanCo = (co: string) => {
-                      return co.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, "").replace("corp", "").replace("ltd", "").replace("private", "").trim();
-                    };
-
-                    const pParts = cleanParts(pBrand);
-                    const normComp = cleanComp(pComp);
-                    const normCo = cleanCo(pCompany);
-
-                    const existingProduct = (products || []).find((existing) => {
-                      if (!existing || existing.isDeleted) return false;
-                      const eBrand = (existing.brandName || existing.name || "").trim().toLowerCase();
-                      const eCompany = (existing.companyName || "").trim().toLowerCase();
-                      const eComp = (existing.composition || existing.activeIngredients || "").trim().toLowerCase();
-
-                      const eParts = cleanParts(eBrand);
-                      const hasNameOverlap = pParts.some(pt => eParts.includes(pt)) || pBrand === eBrand;
-                      const compMatch = normComp === cleanComp(eComp);
-                      const companyMatch = (normCo && cleanCo(eCompany)) ? 
-                                           (normCo === cleanCo(eCompany) || normCo.includes(cleanCo(eCompany)) || cleanCo(eCompany).includes(normCo)) : 
-                                           false;
-
-                      return (pBrand === eBrand && companyMatch) || (hasNameOverlap && compMatch && companyMatch);
-                    });
-
-                    if (existingProduct) {
-                      const matchedName =
-                        existingProduct.brandName || existingProduct.name || "उत्पादन";
-                      const matchedCompany = existingProduct.companyName
-                        ? ` (${existingProduct.companyName})`
-                        : "";
-                      const isEnLang = language === "en";
-
-                      const confirmed = window.confirm(
-                        isEnLang
-                          ? `A matching product "${matchedName}"${matchedCompany} already exists. Do you want to update the existing record?`
-                          : `"${matchedName}"${matchedCompany} हे उत्पादन आधीपासून अस्तित्वात आहे. तुम्हाला अस्तित्वात असलेल्या नोंदीमध्ये सुधारणा (Update) करायची आहे का?`
-                      );
-
-                      if (!confirmed) {
-                        alert(
-                          isEnLang
-                            ? `Save aborted. A product named "${matchedName}" already exists. Please change the brand name or company name to save as a new product.`
-                            : `जतन करणे रद्द केले. "${matchedName}" हे उत्पादन आधीपासून अस्तित्वात आहे. कृपया नवीन उत्पादन म्हणून जतन करण्यासाठी ब्रँड किंवा कंपनीचे नाव बदला.`
-                        );
-                        return;
-                      }
-
-                      const currentVersion = existingProduct.version || 1;
-                      const updatedProduct = {
-                        ...existingProduct,
+                  try {
+                    if (editingProductIndex !== null) {
+                      const id = displayProducts[editingProductIndex].id;
+                      const currentVersion = displayProducts[editingProductIndex].version || 1;
+                      const saveData = {
                         ...data,
                         name: productName,
                         version: currentVersion + 1,
-                        isDeleted: false,
-                      };
-                      saveItem("products", updatedProduct, existingProduct.id);
-                      setHighlightedProductId(existingProduct.id);
-                      logUserActivity("update", "product", productName, existingProduct.id);
-                    } else {
-                      const uniqueId = "product-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
-                      const saveData = {
-                        ...data,
-                        id: uniqueId,
-                        name: productName,
-                        version: 1,
-                        createdBy: currentCreatorId,
-                        createdByUserId: currentCreatorId,
+                        createdBy: data.createdBy || currentCreatorId,
+                        createdByUserId: data.createdByUserId || currentCreatorId,
                         approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
                       };
-                      saveItem("products", saveData, uniqueId).then((newId) => {
+                      await saveItem("products", saveData, id);
+                      setHighlightedProductId(id);
+                      logUserActivity("update", "product", productName, id);
+                    } else {
+                      const pBrand = (data.brandName || data.name || "").trim().toLowerCase();
+                      const pCompany = (data.companyName || "").trim().toLowerCase();
+                      const pComp = (data.composition || data.activeIngredients || "").trim().toLowerCase();
+
+                      const cleanParts = (name: string) => {
+                        return name
+                          .split(/[\/\+\s]/)
+                          .map(part => part.trim().toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/gi, ""))
+                          .filter(part => part.length > 1);
+                      };
+
+                      const cleanComp = (comp: string) => {
+                        return comp.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, "")
+                          .replace("ww", "")
+                          .replace("sc", "")
+                          .replace("wp", "")
+                          .replace("wg", "")
+                          .replace("ec", "");
+                      };
+                      
+                      const cleanCo = (co: string) => {
+                        return co.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, "").replace("corp", "").replace("ltd", "").replace("private", "").trim();
+                      };
+
+                      const pParts = cleanParts(pBrand);
+                      const normComp = cleanComp(pComp);
+                      const normCo = cleanCo(pCompany);
+
+                      const existingProduct = (products || []).find((existing) => {
+                        if (!existing || existing.isDeleted) return false;
+                        const eBrand = (existing.brandName || existing.name || "").trim().toLowerCase();
+                        const eCompany = (existing.companyName || "").trim().toLowerCase();
+                        const eComp = (existing.composition || existing.activeIngredients || "").trim().toLowerCase();
+
+                        const eParts = cleanParts(eBrand);
+                        const hasNameOverlap = pParts.some(pt => eParts.includes(pt)) || pBrand === eBrand;
+                        const compMatch = normComp === cleanComp(eComp);
+                        const companyMatch = (normCo && cleanCo(eCompany)) ? 
+                                             (normCo === cleanCo(eCompany) || normCo.includes(cleanCo(eCompany)) || cleanCo(eCompany).includes(normCo)) : 
+                                             false;
+
+                        return (pBrand === eBrand && companyMatch) || (hasNameOverlap && compMatch && companyMatch);
+                      });
+
+                      if (existingProduct) {
+                        const matchedName =
+                          existingProduct.brandName || existingProduct.name || "उत्पादन";
+                        const matchedCompany = existingProduct.companyName
+                          ? ` (${existingProduct.companyName})`
+                          : "";
+                        const isEnLang = language === "en";
+
+                        const confirmed = window.confirm(
+                          isEnLang
+                            ? `A matching product "${matchedName}"${matchedCompany} already exists. Do you want to update the existing record?`
+                            : `"${matchedName}"${matchedCompany} हे उत्पादन आधीपासून अस्तित्वात आहे. तुम्हाला अस्तित्वात असलेल्या नोंदीमध्ये सुधारणा (Update) करायची आहे का?`
+                        );
+
+                        if (!confirmed) {
+                          alert(
+                            isEnLang
+                              ? `Save aborted. A product named "${matchedName}" already exists. Please change the brand name or company name to save as a new product.`
+                              : `जतन करणे रद्द केले. "${matchedName}" हे उत्पादन आधीपासून अस्तित्वात आहे. कृपया नवीन उत्पादन म्हणून जतन करण्यासाठी ब्रँड किंवा कंपनीचे नाव बदला.`
+                          );
+                          return;
+                        }
+
+                        const currentVersion = existingProduct.version || 1;
+                        const updatedProduct = {
+                          ...existingProduct,
+                          ...data,
+                          name: productName,
+                          version: currentVersion + 1,
+                          isDeleted: false,
+                        };
+                        await saveItem("products", updatedProduct, existingProduct.id);
+                        setHighlightedProductId(existingProduct.id);
+                        logUserActivity("update", "product", productName, existingProduct.id);
+                      } else {
+                        const uniqueId = "product-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+                        const saveData = {
+                          ...data,
+                          id: uniqueId,
+                          name: productName,
+                          version: 1,
+                          createdBy: currentCreatorId,
+                          createdByUserId: currentCreatorId,
+                          approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
+                        };
+                        const newId = await saveItem("products", saveData, uniqueId);
                         setHighlightedProductId(newId || uniqueId);
                         logUserActivity(
                           "create",
@@ -2831,10 +2840,17 @@ export default function App() {
                           productName,
                           newId || uniqueId,
                         );
-                      });
+                      }
                     }
+                    handleBack();
+                  } catch (err: any) {
+                    console.error("Product save failed:", err);
+                    alert(
+                      language === "en"
+                        ? `Failed to save product: ${err.message || "Permission or network error"}`
+                        : `उत्पादन जतन करताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                    );
                   }
-                  handleBack();
                 }}
                 onCancel={handleBack}
               />
@@ -2853,7 +2869,7 @@ export default function App() {
                 products={displayProducts}
                 schedules={schedules}
                 language={language}
-                onSave={(data) => {
+                onSave={async (data) => {
                   const farmer = displayFarmersForSchedule.find(
                     (f) => f.id === data.farmerId || f.mobile === data.farmerId,
                   );
@@ -2875,42 +2891,50 @@ export default function App() {
                     );
                   }
 
-                  if (editingScheduleIndex !== null) {
-                    const id = filteredSchedules[editingScheduleIndex].id;
-                    const saveData = {
-                      ...data,
-                      createdBy: data.createdBy || currentCreatorId,
-                      createdByUserId: data.createdByUserId || currentCreatorId,
-                      updatedByUserId: currentCreatorId,
-                      approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
-                      updatedAt: Date.now()
-                    };
-                    saveItem("schedules", saveData, id);
-                    logUserActivity("update", "schedule", label, id);
-                    setPrefilledSchedule(null);
-                    handleBack();
-                  } else {
-                    const uniqueId = "schedule-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
-                    const saveData = {
-                      ...data,
-                      id: uniqueId,
-                      createdBy: currentCreatorId,
-                      createdByUserId: currentCreatorId,
-                      updatedByUserId: currentCreatorId,
-                      approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
-                      createdAt: Date.now(),
-                      updatedAt: Date.now()
-                    };
-                    saveItem("schedules", saveData, uniqueId).then((newId) => {
+                  try {
+                    if (editingScheduleIndex !== null) {
+                      const id = filteredSchedules[editingScheduleIndex].id;
+                      const saveData = {
+                        ...data,
+                        createdBy: data.createdBy || currentCreatorId,
+                        createdByUserId: data.createdByUserId || currentCreatorId,
+                        updatedByUserId: currentCreatorId,
+                        approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
+                        updatedAt: Date.now()
+                      };
+                      await saveItem("schedules", saveData, id);
+                      logUserActivity("update", "schedule", label, id);
+                      setPrefilledSchedule(null);
+                      handleBack();
+                    } else {
+                      const uniqueId = "schedule-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+                      const saveData = {
+                        ...data,
+                        id: uniqueId,
+                        createdBy: currentCreatorId,
+                        createdByUserId: currentCreatorId,
+                        updatedByUserId: currentCreatorId,
+                        approvalStatus: isAdminOrAdminRole ? "approved" : "pending",
+                        createdAt: Date.now(),
+                        updatedAt: Date.now()
+                      };
+                      const newId = await saveItem("schedules", saveData, uniqueId);
                       logUserActivity(
                         "create",
                         "schedule",
                         label,
                         newId || uniqueId,
                       );
-                    });
-                    setPrefilledSchedule(null);
-                    handleBack();
+                      setPrefilledSchedule(null);
+                      handleBack();
+                    }
+                  } catch (err: any) {
+                    console.error("Schedule save failed:", err);
+                    alert(
+                      language === "en"
+                        ? `Failed to save schedule: ${err.message || "Permission or network error"}`
+                        : `वेळापत्रक जतन करताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                    );
                   }
                 }}
                 onCancel={() => {
@@ -2945,18 +2969,27 @@ export default function App() {
                         isOpen: true,
                         title: "शेतकरी माहिती नष्ट करा?",
                         message: `तुम्हाला खरोखरच '${farmerName}' शेतकरी आणि त्यांचे सर्व रेकॉर्ड नष्ट करायचे आहे का?`,
-                        onConfirm: () => {
-                          deleteItem("farmers", farmer.id);
-                          logUserActivity(
-                            "delete",
-                            "farmer",
-                            farmerName,
-                            farmer.id,
-                          );
-                          setDeleteConfirmation((prev) => ({
-                            ...prev,
-                            isOpen: false,
-                          }));
+                        onConfirm: async () => {
+                          try {
+                            await deleteItem("farmers", farmer.id);
+                            logUserActivity(
+                              "delete",
+                              "farmer",
+                              farmerName,
+                              farmer.id,
+                            );
+                            setDeleteConfirmation((prev) => ({
+                              ...prev,
+                              isOpen: false,
+                            }));
+                          } catch (err: any) {
+                            console.error("Delete farmer failed:", err);
+                            alert(
+                              language === "en"
+                                ? `Failed to delete farmer: ${err.message || "Permission or network error"}`
+                                : `शेतकरी हटवताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                            );
+                          }
                         },
                       });
                     }}
@@ -2994,29 +3027,47 @@ export default function App() {
                         logUserActivity("delete", "product", "all", "system");
                       }
                     }}
-                    onDeleteProduct={(index) => {
+                    onDeleteProduct={async (index) => {
                       const product = displayProducts[index];
                       const productName =
                         product?.brandName || product?.name || "उत्पादन";
-                      deleteItem("products", product.id);
-                      logUserActivity(
-                        "delete",
-                        "product",
-                        productName,
-                        product.id,
-                      );
+                      try {
+                        await deleteItem("products", product.id);
+                        logUserActivity(
+                          "delete",
+                          "product",
+                          productName,
+                          product.id,
+                        );
+                      } catch (err: any) {
+                        console.error("Delete product failed:", err);
+                        alert(
+                          language === "en"
+                            ? `Failed to delete product: ${err.message || "Permission or network error"}`
+                            : `उत्पादन हटवताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                        );
+                      }
                     }}
                     onDeleteProductById={async (id) => {
                       const product = displayProducts.find((p) => p.id === id);
                       const productName =
                         product?.brandName || product?.name || "उत्पादन";
-                      await deleteItem("products", id);
-                      logUserActivity(
-                        "delete",
-                        "product",
-                        productName,
-                        id,
-                      );
+                      try {
+                        await deleteItem("products", id);
+                        logUserActivity(
+                          "delete",
+                          "product",
+                          productName,
+                          id,
+                        );
+                      } catch (err: any) {
+                        console.error("Delete product by ID failed:", err);
+                        alert(
+                          language === "en"
+                            ? `Failed to delete product: ${err.message || "Permission or network error"}`
+                            : `उत्पादन हटवताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                        );
+                      }
                     }}
                   />
                 </LocalErrorBoundary>
@@ -3103,20 +3154,29 @@ export default function App() {
                         title: "वेळापत्रक नष्ट करा?",
                         message:
                           "तुम्हाला खरोखरच हे वेळापत्रक नियोजन नष्ट करायचे आहे का?",
-                        onConfirm: () => {
-                          if (schedule && schedule.id) {
-                            deleteItem("schedules", schedule.id);
+                        onConfirm: async () => {
+                          try {
+                            if (schedule && schedule.id) {
+                              await deleteItem("schedules", schedule.id);
+                            }
+                            logUserActivity(
+                              "delete",
+                              "schedule",
+                              label,
+                              schedule.id,
+                            );
+                            setDeleteConfirmation((prev) => ({
+                              ...prev,
+                              isOpen: false,
+                            }));
+                          } catch (err: any) {
+                            console.error("Delete schedule failed:", err);
+                            alert(
+                              language === "en"
+                                ? `Failed to delete schedule: ${err.message || "Permission or network error"}`
+                                : `वेळापत्रक हटवताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                            );
                           }
-                          logUserActivity(
-                            "delete",
-                            "schedule",
-                            label,
-                            schedule.id,
-                          );
-                          setDeleteConfirmation((prev) => ({
-                            ...prev,
-                            isOpen: false,
-                          }));
                         },
                       });
                     }}
@@ -3140,29 +3200,63 @@ export default function App() {
                     onDeleteUser={handleDeleteUser}
                     onAddUser={handleAddUser}
                     onUpdateFarmer={handleUpdateFarmer}
-                    onDeleteFarmer={(id) => {
+                    onDeleteFarmer={async (id) => {
                       const farmer = farmers.find((f) => f.id === id);
                       const name = farmer?.name || "Farmer";
                       if (farmer) {
-                        saveItem("farmers", { ...farmer, isDeleted: true }, id);
-                        logUserActivity("delete", "farmer", name, id);
+                        try {
+                          await saveItem("farmers", { ...farmer, isDeleted: true }, id);
+                          logUserActivity("delete", "farmer", name, id);
+                        } catch (err: any) {
+                          console.error("Soft-delete farmer failed:", err);
+                          alert(
+                            language === "en"
+                              ? `Failed to delete farmer: ${err.message || "Permission or network error"}`
+                              : `शेतकरी हटवताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                          );
+                        }
                       }
                     }}
-                    onAddProduct={(p) => {
-                      saveItem("products", p);
+                    onAddProduct={async (p) => {
+                      try {
+                        await saveItem("products", p);
+                      } catch (err: any) {
+                        console.error("Add product failed:", err);
+                        alert(`उत्पादन जतन करताना त्रुटी आली: ${err.message || "Error"}`);
+                      }
                     }}
-                    onUpdateProduct={(id, data) => {
+                    onUpdateProduct={async (id, data) => {
                       const product = products.find((p) => p.id === id);
-                      if (product)
-                        saveItem("products", { ...product, ...data }, id);
+                      if (product) {
+                        try {
+                          await saveItem("products", { ...product, ...data }, id);
+                        } catch (err: any) {
+                          console.error("Update product failed:", err);
+                          alert(`उत्पादन अपडेट करताना त्रुटी आली: ${err.message || "Error"}`);
+                        }
+                      }
                     }}
-                    onUpdateSchedule={(id, data) => {
+                    onUpdateSchedule={async (id, data) => {
                       const sch = schedules.find((s) => s.id === id);
-                      if (sch) saveItem("schedules", { ...sch, ...data, updatedAt: Date.now() }, id);
+                      if (sch) {
+                        try {
+                          await saveItem("schedules", { ...sch, ...data, updatedAt: Date.now() }, id);
+                        } catch (err: any) {
+                          console.error("Update schedule failed:", err);
+                          alert(`वेळापत्रक अपडेट करताना त्रुटी आली: ${err.message || "Error"}`);
+                        }
+                      }
                     }}
-                    onUpdateDealer={(id, data) => {
+                    onUpdateDealer={async (id, data) => {
                       const d = dealers.find((dl) => dl.id === id);
-                      if (d) saveItem("dealers", { ...d, ...data }, id);
+                      if (d) {
+                        try {
+                          await saveItem("dealers", { ...d, ...data }, id);
+                        } catch (err: any) {
+                          console.error("Update dealer failed:", err);
+                          alert(`डीलर अपडेट करताना त्रुटी आली: ${err.message || "Error"}`);
+                        }
+                      }
                     }}
                     onAddAlert={handleAddAlert}
                   />
@@ -3179,7 +3273,9 @@ export default function App() {
                 <LocalErrorBoundary featureName="मास्टर वेळापत्रक (Master Schedules)">
                   <MasterScheduleView
                     products={healedProducts}
+                    farmers={displayFarmersForSchedule || farmers}
                     currentUser={currentUser}
+                    isAdmin={isAdminOrAdminRole}
                     language={language}
                     onBack={() => setActiveTab("dashboard")}
                   />

@@ -1190,14 +1190,16 @@ export default function ScheduleList({
                                         }
 
                                         // 3. Persist strictly the done status fields (avoids overwriting other fields & matches security rule)
-                                        saveItem(
-                                          "schedules",
-                                          {
-                                            done: !isDone,
-                                            doneAt: doneAtVal,
-                                          },
-                                          schedule.id,
-                                        ).catch((err) => {
+                                        try {
+                                          await saveItem(
+                                            "schedules",
+                                            {
+                                              done: !isDone,
+                                              doneAt: doneAtVal,
+                                            },
+                                            schedule.id,
+                                          );
+                                        } catch (err: any) {
                                           console.error("[ScheduleDone] saveItem failed:", err);
                                           // Revert optimistic state on explicit failure
                                           setOptimisticDoneMap((prev) => {
@@ -1205,7 +1207,12 @@ export default function ScheduleList({
                                             delete next[schedule.id!];
                                             return next;
                                           });
-                                        });
+                                          alert(
+                                            isEn
+                                              ? `Failed to update schedule status: ${err.message || "Network or permission error"}`
+                                              : `वेळापत्रक स्थिती अपडेट करताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                                          );
+                                        }
                                       }
                                     }}
                                     className={`text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-md border flex items-center gap-0.5 transition-all active:scale-95 shadow-xs cursor-pointer ${
@@ -1386,13 +1393,22 @@ export default function ScheduleList({
                                                   selectedProducts:
                                                     updatedProducts,
                                                 };
-                                                setInlineEdit(null);
                                                 if (schedule.id) {
-                                                  saveItem(
-                                                    "schedules",
-                                                    updatedSchedule,
-                                                    schedule.id,
-                                                  ).catch(console.error);
+                                                  try {
+                                                    await saveItem(
+                                                      "schedules",
+                                                      updatedSchedule,
+                                                      schedule.id,
+                                                    );
+                                                    setInlineEdit(null);
+                                                  } catch (err: any) {
+                                                    console.error("[InlineEdit] saveItem failed:", err);
+                                                    alert(
+                                                      isEn
+                                                        ? `Failed to save product change: ${err.message || "Network or permission error"}`
+                                                        : `बदल जतन करताना त्रुटी आली: ${err.message || "कृपया पुन्हा प्रयत्न करा"}`
+                                                    );
+                                                  }
                                                 }
                                               }}
                                               className="text-[10px] px-2.5 py-1 rounded bg-blue-600 text-white font-bold shadow-sm"

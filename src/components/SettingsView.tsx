@@ -986,7 +986,7 @@ export default function SettingsView({
       {/* ===================== FOOTER ===================== */}
       <div className="text-center pt-2 pb-4">
         <p className="text-[10px] text-slate-500 font-bold tracking-wider uppercase">
-          VIONEX Crop Care • v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.2.2"} • {typeof __BUILD_COMMIT__ !== "undefined" ? __BUILD_COMMIT__ : "dev"}
+          VIONEX Crop Care • v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.2.3"} • {typeof __BUILD_COMMIT__ !== "undefined" ? __BUILD_COMMIT__ : "dev"}
         </p>
         <p className="text-[10px] text-purple-600 font-semibold tracking-wide mt-0.5">
           📅 Build: {typeof __BUILD_TIME__ !== "undefined" ? __BUILD_TIME__ : "Live Dev"} IST

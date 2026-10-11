@@ -2,6 +2,22 @@
 
 All notable changes to the VIONEX platform are documented here.
 
+## [1.2.3] - 2026-10-12
+
+### Master Schedule Redesign & Apply-to-Plot Parity
+- **Web & Mobile Feature Parity**: Upgraded web Master Schedule Management to match mobile app capabilities with responsive collapsible cards, day badges, stage indicators, product doses, and notes.
+- **Apply-to-Plot Workflow**: Integrated the one-click "Apply to Plot" (शेड्युल प्लॉटवर लागू करा) modal with farmer, crop, and schedule date selection, copying standard crop schedule templates as independent plot records.
+
+### Systemic Reliability & Fire-and-Forget Elimination
+- **Strict Awaited Writes & Deletes**: Replaced fire-and-forget patterns across all 14 audited locations in the application (Product add/edit/delete/overwrite, Farmer add/edit/delete/overwrite/soft-delete, Schedule add/edit/delete, and Schedule done toggle & inline edit).
+- **Comprehensive Error Handling & UI Preservation**: Every database transaction is now wrapped in `try/catch`. On permission denial or network rejection, forms and modals remain open with clear bilingual error banners for retry instead of prematurely closing or claiming false success.
+- **Optimistic State Rollback**: Added error rollback to schedule completion toggles and inline product edits on write failures.
+
+### Versioning & Deployment
+- **Version Bump**: Incremented app version to `1.2.3` (`versionCode: 4`, `versionName: "1.2.3"` in `android/app/build.gradle`, `"version": "1.2.3"` in `package.json`).
+- **Service Worker Cache-Busting**: Bumped cache name to `vionex-v12` in `public/sw.js` for instant PWA eviction of outdated assets.
+- **Production APK**: Built and signed `app-release.apk` with the production release keystore, updating `public/vionex.apk`.
+
 ## [1.2.2] - 2026-10-12
 
 ### UI Redesign & Access Control

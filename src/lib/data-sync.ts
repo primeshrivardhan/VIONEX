@@ -111,22 +111,16 @@ export async function saveItem(collectionName: string, item: any, id?: string) {
     const data = { ...item, updatedAt: serverTimestamp() };
     if (id) {
       const docRef = doc(db, collectionName, id);
-      // Don't await directly if we want offline-first instant return.
-      // Firestore will queue this write.
-      setDoc(docRef, data, { merge: true }).catch(err => {
-        console.error(`[data-sync] Firestore background write rejected for ${collectionName}/${id}:`, err);
-      });
+      await setDoc(docRef, data, { merge: true });
       return id;
     } else {
       const docRef = doc(collection(db, collectionName));
-      setDoc(docRef, { ...data, createdAt: serverTimestamp() }).catch(err => {
-        console.error(`[data-sync] Firestore background write rejected for ${collectionName}:`, err);
-      });
+      await setDoc(docRef, { ...data, createdAt: serverTimestamp() });
       return docRef.id;
     }
   } catch (error) {
-    console.warn(`Firestore offline write queued for ${collectionName}.`, error);
-    return finalId;
+    console.error(`[data-sync] Firestore write failed for ${collectionName}:`, error);
+    throw error;
   }
 }
 
@@ -134,11 +128,10 @@ export async function deleteItem(collectionName: string, id: string) {
   if (!db) return;
   try {
     const docRef = doc(db, collectionName, id);
-    deleteDoc(docRef).catch(err => {
-      console.warn(`Firestore background delete failed for ${collectionName}:`, err);
-    });
+    await deleteDoc(docRef);
   } catch (error) {
-    console.warn(`Firestore offline delete queued for ${collectionName}.`, error);
+    console.error(`[data-sync] Firestore delete failed for ${collectionName}:`, error);
+    throw error;
   }
 }
 
