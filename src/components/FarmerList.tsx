@@ -61,10 +61,11 @@ export default function FarmerList({
     .map((farmer, index) => ({ ...farmer, originalIndex: index }))
     .filter(
       (farmer) =>
-        farmer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        farmer.village.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        farmer.taluka.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        farmer.district.toLowerCase().includes(searchQuery.toLowerCase()),
+        Boolean(farmer) &&
+        ((farmer.name || "").toLowerCase().includes((searchQuery || "").toLowerCase()) ||
+        (farmer.village || "").toLowerCase().includes((searchQuery || "").toLowerCase()) ||
+        (farmer.taluka || "").toLowerCase().includes((searchQuery || "").toLowerCase()) ||
+        (farmer.district || "").toLowerCase().includes((searchQuery || "").toLowerCase())),
     );
 
   const pagedFarmers = filteredFarmers.slice(0, pageSize);

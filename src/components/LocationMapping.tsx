@@ -108,8 +108,11 @@ export default function LocationMapping({ onBack, language = "mr", dealers, onDe
       if (!d) return false;
       if (!currentTaluka) return true;
       const dTalNorm = (d.taluka || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
-      const lTalNorm = currentTaluka.toLowerCase().replace(/[^a-z0-9]/g, "").trim();
-      return dTalNorm === lTalNorm || dTalNorm.includes(lTalNorm) || lTalNorm.includes(dTalNorm);
+      const lTalNorm = (currentTaluka || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+      const dTalSafe = dTalNorm || "";
+      const lTalSafe = lTalNorm || "";
+      if (!dTalSafe || !lTalSafe) return false;
+      return dTalSafe === lTalSafe || dTalSafe.includes(lTalSafe) || lTalSafe.includes(dTalSafe);
     });
 
     // Combine locations from master database and dealers to ensure no missing data
@@ -155,8 +158,11 @@ export default function LocationMapping({ onBack, language = "mr", dealers, onDe
     const relevantLocations = locationsFromDealers.filter(loc => {
       if (!currentTaluka) return true;
       const locTalNorm = (loc.taluka || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
-      const currTalNorm = currentTaluka.toLowerCase().replace(/[^a-z0-9]/g, "").trim();
-      return locTalNorm === currTalNorm || locTalNorm.includes(currTalNorm) || currTalNorm.includes(locTalNorm);
+      const currTalNorm = (currentTaluka || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+      const locTalSafe = locTalNorm || "";
+      const currTalSafe = currTalNorm || "";
+      if (!locTalSafe || !currTalSafe) return false;
+      return locTalSafe === currTalSafe || locTalSafe.includes(currTalSafe) || currTalSafe.includes(locTalSafe);
     });
 
     const grouped = relevantLocations.map((loc) => {
@@ -237,15 +243,15 @@ export default function LocationMapping({ onBack, language = "mr", dealers, onDe
     if (searchQuery) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(row => 
-        row.village.toLowerCase().includes(query) ||
-        (row.villageMarathi && row.villageMarathi.toLowerCase().includes(query)) ||
-        row.taluka.toLowerCase().includes(query) ||
-        row.district.toLowerCase().includes(query) ||
-        row.state.toLowerCase().includes(query) ||
-        row.villageDealers.some((d: any) => 
-          d.name.toLowerCase().includes(query) || 
-          d.shopName.toLowerCase().includes(query) || 
-          d.mobile.includes(query)
+        (row.village || "").toLowerCase().includes(query) ||
+        (row.villageMarathi && (row.villageMarathi || "").toLowerCase().includes(query)) ||
+        (row.taluka || "").toLowerCase().includes(query) ||
+        (row.district || "").toLowerCase().includes(query) ||
+        (row.state || "").toLowerCase().includes(query) ||
+        (row.villageDealers || []).some((d: any) => 
+          (d.name || "").toLowerCase().includes(query) || 
+          (d.shopName || "").toLowerCase().includes(query) || 
+          String(d.mobile || "").includes(query)
         )
       );
     }

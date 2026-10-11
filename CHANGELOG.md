@@ -2,6 +2,18 @@
 
 All notable changes to the VIONEX platform are documented here.
 
+## [1.2.4] - 2026-10-12
+
+### Defensive Hardening & Crash Fix
+- **Add Schedule Form Runtime Crash Fix**: Fixed a fatal error (`Cannot read properties of undefined (reading 'includes')`) when launching "+ पुढील शेड्युल जोडा" triggered by farmer records with undefined `mobile` numbers. Added defensive string coercion and fallback across farmer filtering and prefilled data.
+- **Product Search Defense**: Hardened product catalog lookup within the schedule editor, replacing unshielded chained calls with safe string normalization across brand names, company names, formulations, and active ingredients.
+- **Preemptive Farmer & Location Search Guards**: Protected `FarmerList.tsx` against missing or undefined `village`, `taluka`, and `district` properties, and guarded `LocationMapping.tsx` taluka comparison against undefined values and empty-string false-positives.
+
+### Versioning & Deployment
+- **Version Bump**: Incremented app version to `1.2.4` (`versionCode: 5`, `versionName: "1.2.4"` in `android/app/build.gradle`, `"version": "1.2.4"` in `package.json`).
+- **Service Worker Cache-Busting**: Bumped cache name to `vionex-v13` in `public/sw.js` for instant web client cache invalidation.
+- **Production APK**: Rebuilt and signed release APK with the production release keystore, updating `public/vionex.apk`.
+
 ## [1.2.3] - 2026-10-12
 
 ### Master Schedule Redesign & Apply-to-Plot Parity

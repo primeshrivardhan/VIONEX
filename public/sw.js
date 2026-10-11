@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vionex-v12';
+const CACHE_NAME = 'vionex-v13';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

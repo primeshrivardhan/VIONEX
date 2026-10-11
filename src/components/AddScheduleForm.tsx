@@ -135,16 +135,24 @@ export default function AddScheduleForm({
     }
   }, [formData, farmerSearch, initialData]);
 
-  const selectedFarmer = farmers.find((f) => f.mobile === formData.farmerId || f.id === formData.farmerId);
+  const selectedFarmer = farmers.find((f) => f && (f.mobile === formData.farmerId || f.id === formData.farmerId));
 
   // Search farmers - Exclude Sagar Krushi as requested by user
-  const filteredFarmers = farmers.filter(
-    (f) =>
-      (f.name.toLowerCase().includes(farmerSearch.toLowerCase()) ||
-      f.mobile.includes(farmerSearch)) &&
-      !f.name.toLowerCase().includes("sagar krushi") &&
-      !f.name.includes("सागर कृषी")
-  );
+  const filteredFarmers = farmers.filter((f) => {
+    if (!f) return false;
+    const fName = String(f.name || "");
+    const fNameLower = fName.toLowerCase();
+    const fMobile = String(f.mobile || "");
+    const sLower = (farmerSearch || "").toLowerCase();
+
+    const matchesSearch =
+      fNameLower.includes(sLower) ||
+      (fMobile && fMobile.includes(farmerSearch || ""));
+    const isSagarKrushi =
+      fNameLower.includes("sagar krushi") || fName.includes("सागर कृषी");
+
+    return matchesSearch && !isSagarKrushi;
+  });
 
   // Search/Suggest Products (Memoized for speed)
   const filteredProducts = React.useMemo(() => {
@@ -152,14 +160,14 @@ export default function AddScheduleForm({
     const combinedList: any[] = [];
     
     const cleanParts = (name: string) => {
-      return name
+      return (name || "")
         .split(/[\/\+\s]/)
         .map(part => part.trim().toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/gi, ""))
         .filter(part => part.length > 1);
     };
 
     const cleanComp = (comp: string) => {
-      return comp.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, "")
+      return (comp || "").toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, "")
         .replace("ww", "")
         .replace("sc", "")
         .replace("wp", "")
@@ -168,7 +176,7 @@ export default function AddScheduleForm({
     };
     
     const cleanCo = (co: string) => {
-      return co.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, "").replace("corp", "").replace("ltd", "").replace("private", "").trim();
+      return (co || "").toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, "").replace("corp", "").replace("ltd", "").replace("private", "").trim();
     };
 
     const isDuplicate = (list: any[], p: any) => {
@@ -186,12 +194,12 @@ export default function AddScheduleForm({
         const eComp = (existing.composition || existing.activeIngredients || "").trim().toLowerCase();
         
         const eParts = cleanParts(existing.brandName || existing.name || "");
-        const hasNameOverlap = pParts.some(pt => eParts.includes(pt)) || pBrand === eBrand;
+        const hasNameOverlap = pParts.some(pt => (eParts || []).includes(pt)) || pBrand === eBrand;
         
         const compMatch = normComp === cleanComp(eComp);
         const companyMatch = normCo === cleanCo(eCompany) || 
-                             normCo.includes(cleanCo(eCompany)) || 
-                             cleanCo(eCompany).includes(normCo);
+                             (normCo && cleanCo(eCompany) && normCo.includes(cleanCo(eCompany))) || 
+                             (normCo && cleanCo(eCompany) && cleanCo(eCompany).includes(normCo));
 
         return pBrand === eBrand || (hasNameOverlap && compMatch && companyMatch);
       });
@@ -208,15 +216,15 @@ export default function AddScheduleForm({
 
     if (!productSearch) return combinedList.slice(0, 100); // show up to 100 products by default
     
-    const searchLower = productSearch.toLowerCase().trim();
+    const searchLower = (productSearch || "").toLowerCase().trim();
     return combinedList.filter(
       (p) =>
-        p.brandName?.toLowerCase().includes(searchLower) ||
-        p.marathiName?.toLowerCase().includes(searchLower) ||
-        p.companyName?.toLowerCase().includes(searchLower) ||
-        p.composition?.toLowerCase().includes(searchLower) ||
-        p.category?.toLowerCase().includes(searchLower) ||
-        p.name?.toLowerCase().includes(searchLower)
+        (p.brandName || "").toLowerCase().includes(searchLower) ||
+        (p.marathiName || "").toLowerCase().includes(searchLower) ||
+        (p.companyName || "").toLowerCase().includes(searchLower) ||
+        (p.composition || "").toLowerCase().includes(searchLower) ||
+        (p.category || "").toLowerCase().includes(searchLower) ||
+        (p.name || "").toLowerCase().includes(searchLower)
     );
   }, [products, productSearch]);
 
@@ -505,8 +513,8 @@ export default function AddScheduleForm({
   // Setup initial search text if farmer selected
   useEffect(() => {
     if (initialData?.farmerId) {
-      const f = farmers.find((f) => f.mobile === initialData.farmerId || f.id === initialData.farmerId);
-      if (f) setFarmerSearch(f.name);
+      const f = farmers.find((f) => f && (f.mobile === initialData.farmerId || f.id === initialData.farmerId));
+      if (f) setFarmerSearch(f.name || "");
     }
   }, [initialData, farmers]);
 
