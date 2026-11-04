@@ -46,7 +46,7 @@ import { NEW_ADMIN_EMAIL, NEW_ADMIN_DISPLAY_NAME, HOSTING_URL } from "./lib/conf
 import { onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword } from "firebase/auth";
 import { collection, query, where, doc, getDoc, writeBatch, setDoc, getDocsFromCache } from "firebase/firestore";
 import { getToken, onMessage } from "firebase/messaging";
-import { isScheduleForFarmer } from "./lib/utils";
+import { isScheduleForFarmer, countFarmerCropSchedules } from "./lib/utils";
 
 
 
@@ -1322,6 +1322,27 @@ export default function App() {
   const handleUpdateFarmer = (farmerId: string, data: Partial<Farmer>) => {
     const farmer = farmers.find((f) => f.id === farmerId);
     if (farmer) {
+      if (data.crops && Array.isArray(data.crops)) {
+        for (let i = 0; i < data.crops.length; i++) {
+          const newCrop = data.crops[i];
+          const oldCrop = farmer.crops?.[i];
+          if (
+            newCrop &&
+            oldCrop &&
+            newCrop.plantationDate !== oldCrop.plantationDate
+          ) {
+            const count = countFarmerCropSchedules(schedules, farmer, oldCrop, i);
+            if (count > 0) {
+              const confirmed = window.confirm(
+                `${count} existing schedules keep their old dates. Change the schedules separately if needed.`
+              );
+              if (!confirmed) {
+                return;
+              }
+            }
+          }
+        }
+      }
       saveItem("farmers", { 
         ...farmer, 
         ...data, 
@@ -1433,26 +1454,31 @@ export default function App() {
 
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     const SHARED_APP_URL = HOSTING_URL || (typeof window !== "undefined" && window.location.origin ? window.location.origin : "");
     if (!SHARED_APP_URL) {
       alert("होस्टिंग लिंक अजून कॉन्फिगर केलेली नाही (Hosting URL not configured yet)");
       return;
     }
     try {
-      navigator.clipboard.writeText(SHARED_APP_URL);
+      await navigator.clipboard.writeText(SHARED_APP_URL);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     } catch (err) {
       // fallback
-      const el = document.createElement('textarea');
-      el.value = SHARED_APP_URL;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
+      try {
+        const el = document.createElement('textarea');
+        el.value = SHARED_APP_URL;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+      } catch (fallbackErr) {
+        console.error("Copy failed:", fallbackErr);
+        alert("लिंक कॉपी करताना अडचण आली / Failed to copy link: " + SHARED_APP_URL);
+      }
     }
   };
 
@@ -2628,6 +2654,7 @@ export default function App() {
                 }
                 farmers={farmers}
                 dealers={displayDealers}
+                schedules={schedules}
                 onSave={async (data) => {
                   try {
                     if (editingFarmerIndex !== null) {

@@ -16,11 +16,14 @@ import {
   Droplets,
   Zap,
   Activity,
-  BellRing
+  BellRing,
+  Loader2
 } from "lucide-react";
 import { Alert } from "../types";
 import { saveItem } from "../lib/data-sync";
 import { getApiUrl, getAuthHeaders } from "../lib/config";
+import { fetchWithTimeout } from "../lib/fetchWithTimeout";
+import { getSmartLocation } from "../lib/geo-helper";
 
 interface Props {
   alerts: Alert[];
@@ -41,6 +44,7 @@ export default function AlertsView({ alerts, currentUser, currentCoords, onAddAl
   const [prevAlertsLength, setPrevAlertsLength] = useState(alerts.length);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isFetchingAI, setIsFetchingAI] = useState(false);
+  const [isWaking, setIsWaking] = useState(false);
   const [aiError, setAiError] = useState("");
   
   const [formData, setFormData] = useState({
@@ -158,15 +162,16 @@ export default function AlertsView({ alerts, currentUser, currentCoords, onAddAl
       return;
     }
     setIsFetchingAI(true);
+    setIsWaking(false);
     setAiError("");
     try {
       // Pass general crops we want to monitor if not provided state
       const reqBody = { crops: "केळी, द्राक्ष, ऊस, कापूस, डाळिंब, मका, सोयाबीन", state: "महाराष्ट्र" };
-      const res = await fetch(apiUrl, {
+      const res = await fetchWithTimeout(apiUrl, {
         method: "POST",
         headers: await getAuthHeaders(),
         body: JSON.stringify(reqBody)
-      });
+      }, 45000, () => setIsWaking(true));
       if (!res.ok) throw new Error("API Limit or Error");
       const data = await res.json();
       if (data.alerts && Array.isArray(data.alerts)) {
@@ -187,7 +192,14 @@ export default function AlertsView({ alerts, currentUser, currentCoords, onAddAl
         localStorage.setItem("last_ai_alert_fetch", Date.now().toString());
       }
     } catch (err: any) {
-      if (!auto) setAiError("AI कडून लाइव्ह डेटा मिळवण्यात अडचण आली (Failed to fetch live AI alerts).");
+      const isTimeout = err?.name === 'AbortError' || err?.message?.includes('timed out') || err?.message?.includes('aborted');
+      if (!auto) {
+        setAiError(
+          isTimeout
+            ? "सर्व्हर प्रतिसाद वेळेत आला नाही. सर्व्हर सुरू होत असावा, कृपया पुन्हा प्रयत्न करा (Request timed out. Server is waking up, please retry)."
+            : "AI कडून लाइव्ह डेटा मिळवण्यात अडचण आली (Failed to fetch live AI alerts)."
+        );
+      }
     } finally {
       setIsFetchingAI(false);
     }
@@ -446,10 +458,31 @@ export default function AlertsView({ alerts, currentUser, currentCoords, onAddAl
           </div>
         </div>
 
+        {isFetchingAI && isWaking && (
+          <div className="mb-4 p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold border border-emerald-200 flex items-center gap-2 animate-pulse">
+            <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
+            <div>
+              <span>सर्व्हर सुरू होत आहे, यास एक मिनिट लागू शकतो</span>
+              <span className="block text-[11px] font-normal text-emerald-600">
+                (Server is waking up, this can take up to a minute)
+              </span>
+            </div>
+          </div>
+        )}
+
         {aiError && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold border border-red-100 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" />
-            {aiError}
+          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold border border-red-100 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{aiError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleFetchAIAlerts(false)}
+              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[11px] font-bold shrink-0 transition"
+            >
+              पुन्हा प्रयत्न करा (Retry)
+            </button>
           </div>
         )}
 
@@ -548,24 +581,18 @@ export default function AlertsView({ alerts, currentUser, currentCoords, onAddAl
                       </div>
                       <button 
                         type="button"
-                        onClick={() => {
-                          const reqLoc = (highAccuracy, retries) => {
-                            navigator.geolocation.getCurrentPosition((pos) => {
-                              setFormData({
-                                ...formData, 
-                                lat: pos.coords.latitude, 
-                                lng: pos.coords.longitude,
-                                radius: 50
-                              });
-                            }, (err) => {
-                              if(retries > 0) {
-                                reqLoc(!highAccuracy, retries - 1);
-                              } else {
-                                alert("लोकेशन ऍक्सेस नाकारला गेला. कृपया ॲपला लोकेशनची परवानगी द्या.");
-                              }
-                            }, { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 10000 : 15000, maximumAge: 10000 });
-                          };
-                          reqLoc(true, 1);
+                        onClick={async () => {
+                          const loc = await getSmartLocation();
+                          if (loc) {
+                            setFormData({
+                              ...formData,
+                              lat: loc.latitude,
+                              lng: loc.longitude,
+                              radius: 50
+                            });
+                          } else {
+                            alert("लोकेशन ऍक्सेस नाकारला गेला. कृपया ॲपला लोकेशनची परवानगी द्या.");
+                          }
                         }}
                         className="w-full py-2 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-100 flex items-center justify-center gap-2"
                       >

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sprout, Phone, Download, LogIn, User } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth, setExplicitAuthInProgress } from '../lib/firebase';
+import { Capacitor } from '@capacitor/core';
 
 interface LoginScreenProps {
   onUserLogin: (userId: string, pass: string) => Promise<"success" | "pending" | "created" | "wrong_password"> | "success" | "pending" | "created" | "wrong_password";
@@ -245,7 +246,7 @@ export default function LoginScreen({ onUserLogin, onFarmerLogin, defaultType = 
             </button>
           </form>
 
-          {loginType !== 'user' && (
+          {loginType !== 'user' && !Capacitor.isNativePlatform() && (
             <>
               <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">

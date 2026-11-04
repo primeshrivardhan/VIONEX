@@ -6,6 +6,7 @@ import { MasterLocation } from '../types';
 import { ALL_STATES, DISTRICTS_BY_STATE, getTalukasForDistrict, getVillagesForTaluka, isVillageOfficialForTaluka, normalizeTalukaName } from '../lib/maharashtra-locations';
 import { get, set, del, keys } from 'idb-keyval';
 import { getApiUrl, getAuthHeaders } from '../lib/config';
+import { fetchWithTimeout } from '../lib/fetchWithTimeout';
 
 export function normalizeVillageName(name: string): string {
   if (!name) return '';
@@ -32,11 +33,26 @@ export function generateVillageCode(state: string, district: string, taluka: str
   return `${stateCode}_${distCode}_${talCode}_${vilCode}`;
 }
 
+// Session tracker - non-blocking revalidation notice shown at most once per session
+let hasShownRevalidateNoticeThisSession = false;
+
 export function useMasterLocations() {
   const [locations, setLocations] = useState<MasterLocation[]>([]);
   const [loading, setLoading] = useState(false);
+  const [revalidateNotice, setRevalidateNotice] = useState<string | null>(null);
   const [cache, setCache] = useState<Record<string, MasterLocation[]>>({});
   const lastFetchRef = useRef<string>('');
+
+  const showRevalidateNotice = (msg: string) => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return;
+    }
+    if (hasShownRevalidateNoticeThisSession) {
+      return;
+    }
+    hasShownRevalidateNoticeThisSession = true;
+    setRevalidateNotice(msg);
+  };
 
   // Fetch only necessary locations (e.g., by district or taluka)
   const fetchLocations = useCallback(async (filter?: { state?: string, district?: string, taluka?: string }) => {
@@ -274,17 +290,21 @@ export function useMasterLocations() {
   };
 
   const revalidateTalukaOfficial = async (state: string, district: string, taluka: string) => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return false;
+    }
     const apiUrl = getApiUrl('/api/taluka-villages');
     if (!apiUrl || !db) {
-      return;
+      showRevalidateNotice("बॅकएंड सेवा उपलब्ध नाही (Backend location service not available).");
+      return false;
     }
     setLoading(true);
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetchWithTimeout(apiUrl, {
         method: 'POST',
         headers: await getAuthHeaders(),
         body: JSON.stringify({ state, district, taluka })
-      });
+      }, 45000);
       
       const result = await response.json();
       if (result.villages && Array.isArray(result.villages)) {
@@ -325,9 +345,15 @@ export function useMasterLocations() {
         await fetchLocations({ state, district, taluka });
         return true;
       }
+      showRevalidateNotice("गाव सूची डेटा मिळाला नाही (No village data returned from server).");
       return false;
-    } catch (e) {
+    } catch (e: any) {
       console.error("Revalidation failed:", e);
+      const isTimeout = e?.name === 'AbortError' || e?.message?.includes('timed out') || e?.message?.includes('aborted');
+      const errorMsg = isTimeout
+        ? "सर्व्हर प्रतिसाद वेळेत आला नाही. सर्व्हर सुरू होत असावा, कृपया पुन्हा प्रयत्न करा (Request timed out. Server is waking up, please retry)."
+        : `गाव सूची अपडेट करताना त्रुटी आली: ${e?.message || "त्रुटी"}`;
+      showRevalidateNotice(errorMsg);
       return false;
     } finally {
       setLoading(false);
@@ -337,6 +363,8 @@ export function useMasterLocations() {
   return {
     locations,
     loading,
+    revalidateNotice,
+    dismissRevalidateNotice: () => setRevalidateNotice(null),
     addLocations,
     clearAll,
     fetchLocations,

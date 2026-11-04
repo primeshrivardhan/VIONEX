@@ -10,10 +10,10 @@ import {
   Calendar,
   Sprout,
   AlertTriangle,
-  Mic,
 } from "lucide-react";
 import { translateCompositionToMarathi, translateDoseToEnglish, isScheduleForFarmer, translateMarathiToEnglish, getCropPlotLabel } from "../lib/utils";
 import { PRESEEDED_PRODUCTS } from "../lib/preseeded-products";
+import { calculateDateForDay } from "../lib/masterScheduleService";
 import DatePicker from "./DatePicker";
 
 
@@ -86,24 +86,6 @@ export default function AddScheduleForm({
   const [productSearch, setProductSearch] = useState("");
   const [showProductOptions, setShowProductOptions] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-
-  const startDictation = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("तुमचा ब्राउझर व्हॉइस-टू-टेक्स्ट सपोर्ट करत नाही.");
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'mr-IN';
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setFormData(prev => ({...prev, notes: (prev.notes || "") + " " + transcript}));
-    };
-    recognition.start();
-  };
 
   // Load draft from localStorage on mount (only for new empty schedules, not prefilled or edits)
   useEffect(() => {
@@ -284,7 +266,8 @@ export default function AddScheduleForm({
         if (plat && sched) {
           const diffTime = sched.getTime() - plat.getTime();
           const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays.toString();
+          const dayNum = diffDays >= 0 ? diffDays + 1 : diffDays;
+          return dayNum.toString();
         }
       }
     }
@@ -759,12 +742,38 @@ export default function AddScheduleForm({
                 <input
                   type="number"
                   value={formData.day}
-                  onChange={(e) =>
-                    setFormData({ ...formData, day: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    let nextDate = formData.scheduleDate;
+                    if (val !== "" && selectedFarmer && formData.selectedCropIndex !== "") {
+                      const activeCrop = selectedFarmer.crops?.[parseInt(formData.selectedCropIndex, 10)];
+                      const pDate = activeCrop?.plantationDate || activeCrop?.sowingDate;
+                      if (pDate) {
+                        const parsedNum = parseInt(val, 10);
+                        if (!isNaN(parsedNum)) {
+                          const autoDate = calculateDateForDay(pDate, parsedNum);
+                          if (autoDate) nextDate = autoDate;
+                        }
+                      }
+                    }
+                    setFormData({ ...formData, day: val, scheduleDate: nextDate });
+                  }}
                   placeholder="उदा. १५"
                   className="w-full px-2 py-1.5 rounded border border-slate-200 text-xs focus:ring-1 focus:ring-emerald-500 outline-none placeholder:text-slate-300 font-bold text-emerald-700 bg-emerald-50/30"
                 />
+                <p className="text-[9px] text-slate-400 font-medium mt-1">
+                  💡 {isEn ? "Day 1 = planting day" : "दिवस 1 = लागवडीचा दिवस"}
+                </p>
+                {selectedFarmer && formData.selectedCropIndex !== "" && selectedFarmer.crops?.[parseInt(formData.selectedCropIndex, 10)] && !selectedFarmer.crops[parseInt(formData.selectedCropIndex, 10)].plantationDate && !selectedFarmer.crops[parseInt(formData.selectedCropIndex, 10)].sowingDate && (
+                  <p className="text-[9px] text-amber-700 font-bold mt-1 bg-amber-50 border border-amber-200 p-1 rounded flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                    <span>
+                      {isEn
+                        ? "Plantation date is missing for this plot / या प्लॉटची लागवड तारीख भरलेली नाही"
+                        : "या प्लॉटची लागवड तारीख भरलेली नाही / Plantation date is missing for this plot"}
+                    </span>
+                  </p>
+                )}
               </div>
 
               {/* Application Method selection */}
@@ -968,19 +977,9 @@ export default function AddScheduleForm({
 
           {/* Advisory/Notes Box */}
           <div className="bg-white p-2.5 sm:p-3 rounded-lg shadow-sm border border-slate-200">
-            <h3 className="text-xs font-black text-slate-800 mb-2 flex items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-emerald-600" />
-                सल्ला/टीप (Advisory/Tip)
-              </div>
-              <button
-                type="button"
-                onClick={startDictation}
-                className={`p-1.5 rounded-full ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-all`}
-                title="व्हॉइस-टू-टेक्स्ट"
-              >
-                <Mic className="w-3.5 h-3.5" />
-              </button>
+            <h3 className="text-xs font-black text-slate-800 mb-2 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-emerald-600" />
+              <span>सल्ला/टीप (Advisory/Tip)</span>
             </h3>
             <textarea
               value={formData.notes}

@@ -11,10 +11,9 @@ import { auth, ensureAnonymousAuth, isAuthActionPending } from "./firebase";
 export const BACKEND_URL: string = 
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) || "https://vionex-4woy.onrender.com";
 
-// Web Hosting Domain (e.g., https://your-app.web.app)
-// Leave empty if custom hosting is not yet finalized.
+// Web Hosting Domain (Live Render deployment: https://vionex-4woy.onrender.com)
 export const HOSTING_URL: string = 
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_HOSTING_URL) || "";
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_HOSTING_URL) || "https://vionex-4woy.onrender.com";
 
 // Super-Admin Configuration
 export const NEW_ADMIN_EMAIL: string = 

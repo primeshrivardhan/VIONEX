@@ -29,6 +29,8 @@ import {
 import { saveItem } from "../lib/data-sync";
 import PublicLinksSettings from "./PublicLinksSettings";
 import { HOSTING_URL } from "../lib/config";
+import { Capacitor } from "@capacitor/core";
+import { compressImage } from "../lib/imageUtils";
 
 interface SettingsViewProps {
   onLogout: () => void;
@@ -139,6 +141,14 @@ export default function SettingsView({
           isEn
             ? "User ID not found. Unable to update profile."
             : "वापरकर्ता आयडी सापडला नाही. प्रोफाईल अपडेट करणे शक्य नाही."
+        );
+      }
+
+      if (profileForm.photoUrl && profileForm.photoUrl.length > 700 * 1024 * 1.37) {
+        throw new Error(
+          isEn
+            ? "Photo exceeds 700 KB limit. Please select a smaller photo."
+            : "फोटोचा आकार 700 KB पेक्षा जास्त आहे. कृपया लहान फोटो निवडा."
         );
       }
 
@@ -306,7 +316,7 @@ export default function SettingsView({
   const farmerLink = appLink ? `${appLink.replace(/\/$/, "")}/?type=farmer` : "";
   const employeeLink = appLink ? `${appLink.replace(/\/$/, "")}/?view=portal` : "";
 
-  const copyToClipboard = (text: string, key: string) => {
+  const copyToClipboard = async (text: string, key: string) => {
     if (!text) {
       alert(
         isEn
@@ -315,10 +325,18 @@ export default function SettingsView({
       );
       return;
     }
-    navigator.clipboard.writeText(text).then(() => {
+    try {
+      await navigator.clipboard.writeText(text);
       setCopiedLink(key);
       setTimeout(() => setCopiedLink(null), 2000);
-    });
+    } catch (err) {
+      console.error("Clipboard copy error:", err);
+      alert(
+        isEn
+          ? "Failed to copy to clipboard."
+          : "क्लिपबोर्डवर कॉपी करताना अडचण आली."
+      );
+    }
   };
 
   const shareViaWhatsApp = (link: string, title: string) => {
@@ -428,17 +446,30 @@ export default function SettingsView({
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
+                        try {
+                          const compressed = await compressImage(file, {
+                            maxWidth: 400,
+                            maxHeight: 400,
+                            quality: 0.7,
+                            maxSizeBytes: 700 * 1024,
+                          });
                           setProfileForm((prev) => ({
                             ...prev,
-                            photoUrl: reader.result as string,
+                            photoUrl: compressed,
                           }));
-                        };
-                        reader.readAsDataURL(file);
+                          setProfileError("");
+                        } catch (err: any) {
+                          console.error("Avatar compression error:", err);
+                          setProfileError(
+                            err?.message ||
+                              (isEn
+                                ? "Failed to compress photo. Limit is 700 KB."
+                                : "फोटो कॉम्प्रेस करताना त्रुटी आली. कमाल मर्यादा 700 KB आहे.")
+                          );
+                        }
                       }
                     }}
                   />
@@ -765,43 +796,45 @@ export default function SettingsView({
             </button>
           </div>
 
-          {/* Install App Row */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-slate-800">
-                  {isEn ? "Install Mobile Application" : "मोबाईल ॲप इन्स्टॉल करा"}
-                </span>
-                {isStandalone && (
-                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    {isEn ? "Installed" : "इन्स्टॉल आहे"}
+          {/* Install App Row (Hidden on native APK) */}
+          {!Capacitor.isNativePlatform() && (
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-slate-800">
+                    {isEn ? "Install Mobile Application" : "मोबाईल ॲप इन्स्टॉल करा"}
                   </span>
-                )}
+                  {isStandalone && (
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {isEn ? "Installed" : "इन्स्टॉल आहे"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  {isEn
+                    ? "Fast, offline-ready home screen launcher"
+                    : "फास्ट, ऑफलाइन चालणारे होम स्क्रीन ॲप"}
+                </p>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                {isEn
-                  ? "Fast, offline-ready home screen launcher"
-                  : "फास्ट, ऑफलाइन चालणारे होम स्क्रीन ॲप"}
-              </p>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleInstallClick}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 bg-white text-slate-700 border-slate-200 hover:bg-slate-100 active:scale-95"
-            >
-              <Download className="w-3.5 h-3.5 text-purple-600" />
-              <span>
-                {isStandalone
-                  ? isEn
-                    ? "Installed"
-                    : "आधीच इन्स्टॉल आहे"
-                  : isEn
-                  ? "Install App"
-                  : "ॲप इन्स्टॉल करा"}
-              </span>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 bg-white text-slate-700 border-slate-200 hover:bg-slate-100 active:scale-95"
+              >
+                <Download className="w-3.5 h-3.5 text-purple-600" />
+                <span>
+                  {isStandalone
+                    ? isEn
+                      ? "Installed"
+                      : "आधीच इन्स्टॉल आहे"
+                    : isEn
+                    ? "Install App"
+                    : "ॲप इन्स्टॉल करा"}
+                </span>
+              </button>
+            </div>
+          )}
 
           {/* Help & Support Row */}
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -986,7 +1019,7 @@ export default function SettingsView({
       {/* ===================== FOOTER ===================== */}
       <div className="text-center pt-2 pb-4">
         <p className="text-[10px] text-slate-500 font-bold tracking-wider uppercase">
-          VIONEX Crop Care • v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.2.3"} • {typeof __BUILD_COMMIT__ !== "undefined" ? __BUILD_COMMIT__ : "dev"}
+          VIONEX Crop Care • v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.2.5"} • {typeof __BUILD_COMMIT__ !== "undefined" ? __BUILD_COMMIT__ : "dev"}
         </p>
         <p className="text-[10px] text-purple-600 font-semibold tracking-wide mt-0.5">
           📅 Build: {typeof __BUILD_TIME__ !== "undefined" ? __BUILD_TIME__ : "Live Dev"} IST

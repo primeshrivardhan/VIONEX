@@ -39,42 +39,58 @@ export function getPlotsForFarmer(farmer: Farmer | any): PlotOption[] {
 }
 
 /**
- * Calculates schedule date from planting date + day number.
- * If planting date is not set, falls back to today + day number.
+ * Calculates schedule date from planting date + day number using calendar arithmetic.
+ * Returns empty string ("") if plantationDateStr is missing or invalid.
+ * Day 1 = planting day (offset = 0). For dayNo <= 0, offset = dayNo (e.g. Day 0 = planting day, Day -3 = 3 days before).
  */
 export function calculateDateForDay(plantationDateStr?: string, dayNo?: number): string {
-  const day = typeof dayNo === "number" && !isNaN(dayNo) ? dayNo : 0;
-  if (plantationDateStr) {
-    const parts = plantationDateStr.split(/[-/]/);
-    let pDate: Date | null = null;
-    if (parts.length === 3) {
-      if (parts[0].length === 4) {
-        // YYYY-MM-DD
-        pDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-      } else {
-        // DD-MM-YYYY
-        pDate = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-      }
+  if (!plantationDateStr || typeof plantationDateStr !== "string") {
+    return "";
+  }
+  const rawDay = typeof dayNo === "number" && !isNaN(dayNo) ? dayNo : 1;
+  const offset = rawDay >= 1 ? rawDay - 1 : rawDay;
+  const trimmed = plantationDateStr.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const parts = trimmed.split(/[-/]/);
+  let target: Date | null = null;
+
+  if (parts.length === 3) {
+    let y = 0;
+    let m = 0;
+    let d = 0;
+    if (parts[0].length === 4) {
+      // YYYY-MM-DD
+      y = parseInt(parts[0], 10);
+      m = parseInt(parts[1], 10) - 1;
+      d = parseInt(parts[2], 10);
     } else {
-      const d = new Date(plantationDateStr);
-      if (!isNaN(d.getTime())) pDate = d;
+      // DD-MM-YYYY
+      y = parseInt(parts[2], 10);
+      m = parseInt(parts[1], 10) - 1;
+      d = parseInt(parts[0], 10);
     }
 
-    if (pDate && !isNaN(pDate.getTime())) {
-      const target = new Date(pDate.getTime() + day * 24 * 60 * 60 * 1000);
-      const yyyy = target.getFullYear();
-      const mm = String(target.getMonth() + 1).padStart(2, "0");
-      const dd = String(target.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      target = new Date(y, m, d + offset);
+    }
+  } else {
+    const fallback = new Date(trimmed);
+    if (!isNaN(fallback.getTime())) {
+      target = new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate() + offset);
     }
   }
 
-  // Fallback: today
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  if (target && !isNaN(target.getTime())) {
+    const yyyy = target.getFullYear();
+    const mm = String(target.getMonth() + 1).padStart(2, "0");
+    const dd = String(target.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  return "";
 }
 
 export interface ApplyMasterScheduleParams {

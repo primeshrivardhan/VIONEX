@@ -6,7 +6,8 @@ import ConfirmationModal from "./ConfirmationModal";
 import { motion, AnimatePresence } from "motion/react";
 import { MAHARASHTRA_DISTRICTS, getTalukasForDistrict, getVillagesForTaluka } from "../lib/maharashtra-locations";
 import { generateVillageCode } from "../hooks/useMasterLocations";
-import { getSmartLocation } from "../lib/geo-helper";
+import { getSmartLocation, reverseGeocodeWithFallback } from "../lib/geo-helper";
+import { HOSTING_URL } from "../lib/config";
 import { db } from "../lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { registerBackHandler } from "../lib/backNavigation";
@@ -263,149 +264,146 @@ export default function DealersView({
     setFormData(prev => ({ ...prev, lat: latitude, lon: longitude }));
     
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en-US,en`
-      );
-          const data = await response.json();
-          const addr = data.address || {};
+      const geoData = await reverseGeocodeWithFallback(latitude, longitude);
+      if (!geoData) {
+        alert("लोकेशनवरून पत्ता शोधण्यात अडचण आली. कृपया मॅन्युअली पत्ता भरा (Could not resolve address from GPS. Please enter address manually).");
+        setFormData((prev) => ({
+          ...prev,
+          lat: latitude,
+          lon: longitude,
+        }));
+        return;
+      }
+
+      const {
+        rawState,
+        rawDistrict,
+        rawTaluka,
+        rawVillage,
+        rawPincode,
+        addrValues,
+        displayName,
+        country,
+      } = geoData;
+
+      const cleanAndNormalize = (str: string): string => {
+        if (!str) return "";
+        return str.toLowerCase()
+          .replace(/\(.*\)/g, "")
+          .replace(/district|tehsil|taluka|taluk|subdistrict|division|village|town|city|state/g, "")
+          .replace(/[^a-z0-9]/g, "")
+          .trim();
+      };
+
+      const isNameMatch = (nameA: string, nameB: string): boolean => {
+        if (!nameA || !nameB) return false;
+        const normA = cleanAndNormalize(nameA);
+        const normB = cleanAndNormalize(nameB);
+        if (!normA || !normB) return false;
+        
+        if (normA === normB) {
+          return true;
+        }
+        
+        if (normA.length >= 5 && normB.length >= 5) {
+          if (normA.includes(normB) || normB.includes(normA)) {
+            return true;
+          }
+        }
+        
+        return false;
+      };
+
+      // Check if it's Maharashtra
+      const isMaha = rawState.toLowerCase().includes("maharashtra") ||
+                     addrValues.some(v => v.toLowerCase().includes("maharashtra")) ||
+                     MAHARASHTRA_DISTRICTS.some(d => isNameMatch(d, rawDistrict));
+
+      let finalState = "Other";
+      let finalDistrict = "";
+      let finalTaluka = "";
+      let finalVillage = "";
+      let setManual = true;
+
+      if (isMaha) {
+        finalState = "Maharashtra";
+
+        // 1. Find matched district
+        let matchedDist = MAHARASHTRA_DISTRICTS.find(d => isNameMatch(d, rawDistrict));
+        if (!matchedDist) {
+          matchedDist = MAHARASHTRA_DISTRICTS.find(d => addrValues.some(val => isNameMatch(d, val)));
+        }
+        finalDistrict = matchedDist || rawDistrict || "Yavatmal";
+
+        // 2. Find matched taluka
+        const talukas = getTalukasForDistrict(finalDistrict);
+        let matchedTal = talukas.find(t => isNameMatch(t, rawTaluka));
+        if (!matchedTal) {
+          matchedTal = talukas.find(t => addrValues.some(val => isNameMatch(t, val)));
+        }
+        finalTaluka = matchedTal || rawTaluka || "";
+
+        // 3. Find matched village
+        if (finalTaluka) {
+          const villages = getVillagesForTaluka(finalTaluka);
           
-          const rawState = addr.state || "";
-          const rawDistrict = addr.state_district || addr.district || addr.county || addr.city_district || "";
-          const rawTaluka = addr.subdistrict || addr.tehsil || addr.taluk || addr.suburb || addr.taluka || addr.city || addr.town || addr.municipality || "";
-          const rawVillage = addr.village || addr.suburb || addr.town || addr.neighbourhood || addr.hamlet || addr.locality || addr.croft || "";
+          // Prioritize rawVillage (from address.village, hamlet, etc.)
+          let matchedVill = villages.find(v => isNameMatch(v, rawVillage));
           
-          const extractPincode = (p: string, d: string): string => {
-            const combined = `${p || ""} ${d || ""}`;
-            const match = combined.match(/\b\d{6}\b/);
-            return match ? match[0] : "";
-          };
-
-          const rawPincode = extractPincode(addr.postcode, data.display_name);
-
-          // Gather all text values from structured address and comma-split display name
-          const addrValues = [
-            ...Object.values(addr).map(v => String(v)),
-            ...(data.display_name ? data.display_name.split(",").map(s => s.trim()) : [])
-          ].filter(Boolean);
-
-          const cleanAndNormalize = (str: string): string => {
-            if (!str) return "";
-            return str.toLowerCase()
-              .replace(/\(.*\)/g, "")
-              .replace(/district|tehsil|taluka|taluk|subdistrict|division|village|town|city|state/g, "")
-              .replace(/[^a-z0-9]/g, "")
-              .trim();
-          };
-
-          const isNameMatch = (nameA: string, nameB: string): boolean => {
-            if (!nameA || !nameB) return false;
-            const normA = cleanAndNormalize(nameA);
-            const normB = cleanAndNormalize(nameB);
-            if (!normA || !normB) return false;
+          if (matchedVill) {
+            finalVillage = matchedVill;
+            setManual = false;
+          } else {
+            // Fallback: check other address fields, but avoid aggressive matching
+            const exactVill = villages.find(v => {
+              const normV = cleanAndNormalize(v);
+              return addrValues.some(val => cleanAndNormalize(val) === normV);
+            });
             
-            if (normA === normB) {
-              return true;
-            }
-            
-            if (normA.length >= 5 && normB.length >= 5) {
-              if (normA.includes(normB) || normB.includes(normA)) {
-                return true;
-              }
-            }
-            
-            return false;
-          };
-
-          // Check if it's Maharashtra
-          const isMaha = rawState.toLowerCase().includes("maharashtra") ||
-                         addrValues.some(v => v.toLowerCase().includes("maharashtra")) ||
-                         MAHARASHTRA_DISTRICTS.some(d => isNameMatch(d, rawDistrict));
-
-          let finalState = "Other";
-          let finalDistrict = "";
-          let finalTaluka = "";
-          let finalVillage = "";
-          let setManual = true;
-
-          if (isMaha) {
-            finalState = "Maharashtra";
-
-            // 1. Find matched district
-            let matchedDist = MAHARASHTRA_DISTRICTS.find(d => isNameMatch(d, rawDistrict));
-            if (!matchedDist) {
-              matchedDist = MAHARASHTRA_DISTRICTS.find(d => addrValues.some(val => isNameMatch(d, val)));
-            }
-            finalDistrict = matchedDist || rawDistrict || "Yavatmal";
-
-            // 2. Find matched taluka
-            const talukas = getTalukasForDistrict(finalDistrict);
-            let matchedTal = talukas.find(t => isNameMatch(t, rawTaluka));
-            if (!matchedTal) {
-              matchedTal = talukas.find(t => addrValues.some(val => isNameMatch(t, val)));
-            }
-            finalTaluka = matchedTal || rawTaluka || "";
-
-            // 3. Find matched village
-            if (finalTaluka) {
-              const villages = getVillagesForTaluka(finalTaluka);
-              
-              // Prioritize rawVillage (from address.village, hamlet, etc.)
-              let matchedVill = villages.find(v => isNameMatch(v, rawVillage));
-              
-              if (matchedVill) {
-                finalVillage = matchedVill;
-                setManual = false;
-              } else {
-                // Fallback: check other address fields, but avoid aggressive matching
-                // We only check if it matches EXACTLY to avoid "Siddhewadi road" matching "Siddhewadi"
-                const exactVill = villages.find(v => {
-                  const normV = cleanAndNormalize(v);
-                  return addrValues.some(val => cleanAndNormalize(val) === normV);
-                });
-                
-                if (exactVill) {
-                  finalVillage = exactVill;
-                  setManual = false;
-                } else {
-                  finalVillage = rawVillage;
-                  setManual = true;
-                }
-              }
+            if (exactVill) {
+              finalVillage = exactVill;
+              setManual = false;
             } else {
               finalVillage = rawVillage;
               setManual = true;
             }
-          } else {
-            finalState = rawState || "Other";
-            finalDistrict = rawDistrict;
-            finalTaluka = rawTaluka;
-            finalVillage = rawVillage;
-            setManual = true;
           }
-
-          setIsManualVillage(setManual);
-          setFormData((prev) => ({
-            ...prev,
-            lat: latitude,
-            lon: longitude,
-            address: data.display_name,
-            state: finalState,
-            district: finalDistrict,
-            taluka: finalTaluka,
-            village: finalVillage,
-            pincode: rawPincode,
-            country: (addr.country === "India" || addr.country_code === "in") ? "India" : (addr.country || prev.country),
-          }));
-        } catch (error) {
-          console.error("Geocoding error:", error);
-          setFormData((prev) => ({
-            ...prev,
-            lat: latitude,
-            lon: longitude,
-          }));
-        } finally {
-          setIsDetectingLocation(false);
+        } else {
+          finalVillage = rawVillage;
+          setManual = true;
         }
+      } else {
+        finalState = rawState || "Other";
+        finalDistrict = rawDistrict;
+        finalTaluka = rawTaluka;
+        finalVillage = rawVillage;
+        setManual = true;
+      }
+
+      setIsManualVillage(setManual);
+      setFormData((prev) => ({
+        ...prev,
+        lat: latitude,
+        lon: longitude,
+        address: displayName,
+        state: finalState,
+        district: finalDistrict,
+        taluka: finalTaluka,
+        village: finalVillage,
+        pincode: rawPincode,
+        country: (country === "India") ? "India" : (country || prev.country),
+      }));
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      alert("लोकेशनवरून पत्ता शोधण्यात अडचण आली. कृपया मॅन्युअली पत्ता भरा (Could not resolve address from GPS. Please enter address manually).");
+      setFormData((prev) => ({
+        ...prev,
+        lat: latitude,
+        lon: longitude,
+      }));
+    } finally {
+      setIsDetectingLocation(false);
+    }
   };
 
   const filteredDealers = dealers.filter((d) => {
@@ -607,7 +605,7 @@ export default function DealersView({
   };
 
   const handleShareLink = () => {
-    const link = `${window.location.origin}/?view=register-dealer`;
+    const link = `${HOSTING_URL}/?view=register-dealer`;
     navigator.clipboard.writeText(link).then(() => {
       alert("Dealer Registration Link copied to clipboard!");
     }).catch(() => {
@@ -770,8 +768,8 @@ export default function DealersView({
                   type="button"
                   onClick={() => {
                     const cleanNumber = dealer.mobile.replace(/\D/g, "");
-                    const msg = `नमस्कार ${dealer.shopName} (${dealer.name}),\n\nनवीन कृषी माहिती, उत्पादने व शेड्युल अपडेट्स आपल्या Dealer Network पोर्टलमध्ये उपलब्ध करण्यात आले आहेत. कृपया खालील लिंकवर जाऊन त्वरित तपासा:\n\n${window.location.origin}/?loginType=user\n\nआपला नम्र,\nVIONEX ऍडमिन.`;
-                    const waUrl = `https://wa.me/91${cleanNumber}?text=${msg}`;
+                    const msg = `नमस्कार ${dealer.shopName} (${dealer.name}),\n\nनवीन कृषी माहिती, उत्पादने व शेड्युल अपडेट्स आपल्या Dealer Network पोर्टलमध्ये उपलब्ध करण्यात आले आहेत. कृपया खालील लिंकवर जाऊन त्वरित तपासा:\n\n${HOSTING_URL}/?loginType=user\n\nआपला नम्र,\nVIONEX ऍडमिन.`;
+                    const waUrl = `https://wa.me/91${cleanNumber}?text=${encodeURIComponent(msg)}`;
                     window.open(waUrl, "_blank", "noopener,noreferrer");
                   }}
                   className="flex items-center justify-center w-9 h-9 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 active:scale-95 transition-all shrink-0"

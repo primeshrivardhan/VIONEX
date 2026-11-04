@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Copy, Check, Share2, RefreshCw, Power } from "lucide-react";
 import { db } from "../lib/firebase";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { HOSTING_URL } from "../lib/config";
 
 interface PublicLinksSettingsProps {
   appLink: string;
@@ -57,8 +58,9 @@ export default function PublicLinksSettings({ appLink }: PublicLinksSettingsProp
     await setDoc(docRef, updated);
   };
 
-  const copyText = (text: string, type: "dealer" | "consultant") => {
-    navigator.clipboard.writeText(text).then(() => {
+  const copyText = async (text: string, type: "dealer" | "consultant") => {
+    try {
+      await navigator.clipboard.writeText(text);
       if (type === "dealer") {
         setCopiedDealer(true);
         setTimeout(() => setCopiedDealer(false), 2000);
@@ -66,7 +68,10 @@ export default function PublicLinksSettings({ appLink }: PublicLinksSettingsProp
         setCopiedConsultant(true);
         setTimeout(() => setCopiedConsultant(false), 2000);
       }
-    });
+    } catch (err) {
+      console.error("Clipboard copy error:", err);
+      alert("लिंक कॉपी करताना अडचण आली / Failed to copy link: " + text);
+    }
   };
 
   const shareLink = (link: string, title: string) => {
@@ -83,7 +88,8 @@ export default function PublicLinksSettings({ appLink }: PublicLinksSettingsProp
   if (!config) return null;
 
   const renderLinkSection = (type: "dealer" | "consultant", title: string, data: any) => {
-    const link = `${appLink.replace(/\/$/, "")}/?view=public-form&type=${type}&token=${data.token}`;
+    const baseHost = (appLink || HOSTING_URL || "").replace(/\/$/, "");
+    const link = `${baseHost}/?view=public-form&type=${type}&token=${data.token}`;
     const copied = type === "dealer" ? copiedDealer : copiedConsultant;
 
     return (

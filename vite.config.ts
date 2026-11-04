@@ -35,7 +35,21 @@ export default defineConfig(() => {
     },
     plugins: [
       react(), 
-      tailwindcss()
+      tailwindcss(),
+      {
+        name: 'exclude-apk-from-dist',
+        closeBundle() {
+          const distApk = path.resolve(__dirname, 'dist', 'vionex.apk');
+          if (fs.existsSync(distApk)) {
+            try {
+              fs.unlinkSync(distApk);
+              console.log('✓ Excluded dist/vionex.apk from web assets');
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      }
     ],
     resolve: {
       alias: {

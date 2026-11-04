@@ -7,8 +7,6 @@ import {
   Trash2,
   Edit,
   Search,
-  Mic,
-  MicOff,
   Leaf,
   Sprout,
   AlertTriangle,
@@ -89,7 +87,6 @@ export default function MasterScheduleView({
   // Product Search State
   const [productSearch, setProductSearch] = useState("");
   const [showProductOptions, setShowProductOptions] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [formError, setFormError] = useState("");
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
 
@@ -211,31 +208,6 @@ export default function MasterScheduleView({
     const updated = [...formData.selectedProducts];
     updated.splice(index, 1);
     setFormData((prev) => ({ ...prev, selectedProducts: updated }));
-  };
-
-  // Speech Recognition for Notes/Tip
-  const startDictation = () => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("तुमचा ब्राउझर व्हॉइस-टू-टेक्स्ट सपोर्ट करत नाही.");
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "mr-IN";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setFormData((prev) => ({
-        ...prev,
-        notes: prev.notes ? `${prev.notes} ${transcript}` : transcript,
-      }));
-    };
-    recognition.start();
   };
 
   // Filtered Products for Autocomplete
@@ -485,12 +457,12 @@ export default function MasterScheduleView({
         setCustomScheduleDate(calculateDateForDay(matchedPlot.plantationDate, sched.dayNo));
       } else {
         setSelectedPlotKey("");
-        setCustomScheduleDate(calculateDateForDay(undefined, sched.dayNo));
+        setCustomScheduleDate("");
       }
     } else {
       setSelectedFarmerId("");
       setSelectedPlotKey("");
-      setCustomScheduleDate(calculateDateForDay(undefined, sched.dayNo));
+      setCustomScheduleDate("");
     }
   };
 
@@ -547,10 +519,11 @@ export default function MasterScheduleView({
         setCustomScheduleDate(calculateDateForDay(matchedPlot.plantationDate, applyTargetSchedule?.dayNo));
       } else {
         setSelectedPlotKey("");
-        setCustomScheduleDate(calculateDateForDay(undefined, applyTargetSchedule?.dayNo));
+        setCustomScheduleDate("");
       }
     } else {
       setSelectedPlotKey("");
+      setCustomScheduleDate("");
     }
   };
 
@@ -560,6 +533,8 @@ export default function MasterScheduleView({
     const chosen = plotsForSelectedFarmer.find((p) => p.key === newPlotKey);
     if (chosen && applyTargetSchedule) {
       setCustomScheduleDate(calculateDateForDay(chosen.plantationDate, applyTargetSchedule.dayNo));
+    } else {
+      setCustomScheduleDate("");
     }
   };
 
@@ -576,6 +551,14 @@ export default function MasterScheduleView({
         isEn
           ? "This farmer does not have any active crop plots. Please add a crop plot first."
           : "या शेतकऱ्याकडे कोणताही सक्रिय प्लॉट नाही. कृपया प्रथम शेतकरी प्रोफाइलमध्ये पीक/प्लॉट जोडा."
+      );
+      return;
+    }
+    if (!activePlotOption?.plantationDate) {
+      setApplyError(
+        isEn
+          ? "Plantation date is missing for this plot / या प्लॉटची लागवड तारीख भरलेली नाही"
+          : "या प्लॉटची लागवड तारीख भरलेली नाही / Plantation date is missing for this plot"
       );
       return;
     }
@@ -791,6 +774,9 @@ export default function MasterScheduleView({
                   onChange={(e) => setFormData((prev) => ({ ...prev, dayNo: e.target.value }))}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold focus:ring-1 focus:ring-purple-500 outline-none bg-slate-50"
                 />
+                <p className="text-[10px] text-slate-500 font-medium mt-1">
+                  💡 {isEn ? "Day 1 = planting day" : "दिवस 1 = लागवडीचा दिवस"}
+                </p>
               </div>
 
               <div>
@@ -990,31 +976,11 @@ export default function MasterScheduleView({
 
             {/* Notes / Advice Box */}
             <div className="bg-slate-50/70 p-3 sm:p-4 rounded-xl border border-slate-200">
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2">
                 <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
                   <Leaf className="w-4 h-4 text-purple-600" />
                   {isEn ? "Notes & Specialist Advice" : "टीप / सल्ला"}
                 </label>
-                <button
-                  type="button"
-                  onClick={startDictation}
-                  className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${
-                    isListening
-                      ? "bg-red-100 text-red-600 animate-pulse border border-red-200"
-                      : "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"
-                  }`}
-                >
-                  {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                  <span>
-                    {isListening
-                      ? isEn
-                        ? "Listening..."
-                        : "ऐकत आहे..."
-                      : isEn
-                      ? "Voice Input"
-                      : "बोलून सांगा"}
-                  </span>
-                </button>
               </div>
               <textarea
                 value={formData.notes}
@@ -1495,10 +1461,22 @@ export default function MasterScheduleView({
                     onChange={(e) => setCustomScheduleDate(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold font-mono focus:ring-1 focus:ring-emerald-500 outline-none bg-white"
                   />
-                  {activePlotOption?.plantationDate && (
+                  {activePlotOption?.plantationDate ? (
                     <p className="text-[10px] text-emerald-700 font-medium mt-1">
                       🌱 {isEn ? "Plantation date: " : "लागवड तारीख: "}{activePlotOption.plantationDate} (Day {applyTargetSchedule.dayNo} {isEn ? "auto-calculated" : "स्वयंचलित मोजली"})
+                      <span className="ml-1.5 text-slate-500 font-normal">
+                        • {isEn ? "Day 1 = planting day" : "दिवस 1 = लागवडीचा दिवस"}
+                      </span>
                     </p>
+                  ) : (
+                    <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-bold flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>
+                        {isEn
+                          ? "Plantation date is missing for this plot / या प्लॉटची लागवड तारीख भरलेली नाही"
+                          : "या प्लॉटची लागवड तारीख भरलेली नाही / Plantation date is missing for this plot"}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
@@ -1515,9 +1493,15 @@ export default function MasterScheduleView({
               </button>
               <button
                 type="button"
-                disabled={!selectedFarmer || plotsForSelectedFarmer.length === 0 || isApplying}
+                disabled={
+                  !selectedFarmer ||
+                  plotsForSelectedFarmer.length === 0 ||
+                  isApplying ||
+                  !activePlotOption?.plantationDate ||
+                  !customScheduleDate
+                }
                 onClick={handleConfirmApply}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
               >
                 <Sprout className="w-4 h-4" />
                 <span>

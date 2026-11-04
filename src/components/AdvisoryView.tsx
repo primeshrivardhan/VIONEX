@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Markdown from "react-markdown";
 import { getApiUrl, getAuthHeaders } from "../lib/config";
+import { fetchWithTimeout } from "../lib/fetchWithTimeout";
 
 interface Props {
   crop: Crop;
@@ -27,6 +28,7 @@ export default function AdvisoryView({ crop, onBack, alerts }: Props) {
     return localStorage.getItem(`krushi-mitra-advice-${crop.id}`);
   });
   const [loading, setLoading] = useState(false);
+  const [isWaking, setIsWaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator !== "undefined" ? navigator.onLine : true,
@@ -75,9 +77,10 @@ export default function AdvisoryView({ crop, onBack, alerts }: Props) {
     }
 
     setLoading(true);
+    setIsWaking(false);
     setError(null);
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetchWithTimeout(apiUrl, {
         method: "POST",
         headers: await getAuthHeaders(),
         body: JSON.stringify({
@@ -87,7 +90,7 @@ export default function AdvisoryView({ crop, onBack, alerts }: Props) {
           area: crop.area,
           issue: customIssue || "अतिरिक्त माहिती नाही",
         }),
-      });
+      }, 45000, () => setIsWaking(true));
 
       const data = await response.json();
       if (!response.ok)
@@ -165,12 +168,20 @@ export default function AdvisoryView({ crop, onBack, alerts }: Props) {
       </div>
 
       <div className="flex-grow p-4 sm:p-6 overflow-y-auto w-full">
-        {loading && !advice && (
-          <div className="flex flex-col items-center justify-center p-12 text-emerald-400 h-full">
-            <Loader2 className="w-10 h-10 animate-spin mb-4" />
-            <p className="font-bold text-sm tracking-widest uppercase animate-pulse">
+        {loading && (
+          <div className="flex flex-col items-center justify-center p-8 text-emerald-400 mb-4 bg-slate-800/60 rounded-xl border border-emerald-500/20">
+            <Loader2 className="w-8 h-8 animate-spin mb-3 text-emerald-400" />
+            <p className="font-bold text-xs tracking-wider uppercase animate-pulse text-center">
               तज्ञांकडून माहिती मिळवत आहोत...
             </p>
+            {isWaking && (
+              <p className="text-[11px] text-slate-300 mt-2 text-center">
+                सर्व्हर सुरू होत आहे, यास एक मिनिट लागू शकतो<br />
+                <span className="text-[10px] text-slate-400 font-sans">
+                  (Server is waking up, this can take up to a minute)
+                </span>
+              </p>
+            )}
           </div>
         )}
 
@@ -180,9 +191,9 @@ export default function AdvisoryView({ crop, onBack, alerts }: Props) {
             {isOnline && (
               <button
                 onClick={() => fetchAdvice(issue)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
               >
-                पुन्हा प्रयत्न करा
+                पुन्हा प्रयत्न करा (Retry)
               </button>
             )}
           </div>

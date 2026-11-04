@@ -538,6 +538,40 @@ export const isScheduleForFarmer = (s: any, selectedFarmerId: string, selFarmer?
   return false;
 };
 
+export const countFarmerCropSchedules = (
+  schedules: any[] = [],
+  farmer: any,
+  crop: any,
+  cropIndex: number
+): number => {
+  if (!schedules || !Array.isArray(schedules) || !farmer) return 0;
+  return schedules.filter((s: any) => {
+    if (!isScheduleForFarmer(s, farmer.id || farmer.mobile, farmer)) {
+      return false;
+    }
+    const sCropId = s.cropId !== undefined && s.cropId !== null ? String(s.cropId).trim() : "";
+    const targetCropId = crop?.id ? String(crop.id).trim() : "";
+    const targetIndexStr = String(cropIndex);
+
+    if (sCropId !== "") {
+      return sCropId === targetCropId || sCropId === targetIndexStr;
+    } else {
+      const sCropName = (s.cropName || "").trim().toLowerCase();
+      const targetCropName = (crop?.crop || "").trim().toLowerCase();
+      if (!sCropName || !targetCropName) return false;
+      if (sCropName !== targetCropName) return false;
+
+      const sameCrops = farmer?.crops?.filter(
+        (c: any) => (c.crop || "").trim().toLowerCase() === targetCropName
+      );
+      if (sameCrops && sameCrops.length > 1 && cropIndex !== 0) {
+        return false;
+      }
+      return true;
+    }
+  }).length;
+};
+
 export function translateModeOfActionToEnglish(text: string): string {
   if (!text) return "";
   const cleaned = text.trim();

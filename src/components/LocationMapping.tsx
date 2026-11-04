@@ -46,6 +46,8 @@ export default function LocationMapping({ onBack, language = "mr", dealers, onDe
   const { 
     locations, 
     loading, 
+    revalidateNotice,
+    dismissRevalidateNotice,
     addLocations, 
     fetchLocations, 
     deleteLocation, 
@@ -486,6 +488,23 @@ export default function LocationMapping({ onBack, language = "mr", dealers, onDe
           </div>
         </div>
       </header>
+
+      {/* Revalidation Notice (non-blocking) */}
+      {revalidateNotice && (
+        <div className="bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-[11px] text-amber-800 font-medium flex items-center justify-between no-print">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>{revalidateNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={dismissRevalidateNotice}
+            className="text-amber-700 hover:text-amber-900 font-bold px-1.5 py-0.5 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="bg-white px-2 py-1.5 no-print shrink-0 z-20 border-b border-slate-200 shadow-sm">

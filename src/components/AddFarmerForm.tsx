@@ -2,7 +2,8 @@ import { useState } from "react";
 import { ArrowLeft, Save, MapPin, Eye, EyeOff, Camera } from "lucide-react";
 import DatePicker from "./DatePicker";
 import { MAHARASHTRA_DISTRICTS, getTalukasForDistrict, getVillagesForTaluka } from "../lib/maharashtra-locations";
-import { getSmartLocation } from "../lib/geo-helper";
+import { getSmartLocation, reverseGeocodeWithFallback } from "../lib/geo-helper";
+import { countFarmerCropSchedules } from "../lib/utils";
 
 const indianStates = [
   "Maharashtra",
@@ -301,6 +302,7 @@ interface Props {
   onSave: (farmerData: any) => void;
   onCancel: () => void;
   dealers?: any[];
+  schedules?: any[];
 }
 
 export default function AddFarmerForm({
@@ -309,6 +311,7 @@ export default function AddFarmerForm({
   onSave,
   onCancel,
   dealers = [],
+  schedules = [],
 }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [isDealerDropdownOpen, setIsDealerDropdownOpen] = useState(false);
@@ -371,6 +374,25 @@ export default function AddFarmerForm({
   };
 
   const updateCrop = (index: number, field: string, value: string) => {
+    if (field === "plantationDate" && value !== crops[index]?.plantationDate) {
+      const targetFarmer =
+        initialData ||
+        (formData.mobile
+          ? { id: formData.mobile, mobile: formData.mobile, name: formData.name, crops }
+          : null);
+      if (targetFarmer && schedules && schedules.length > 0) {
+        const count = countFarmerCropSchedules(schedules, targetFarmer, crops[index], index);
+        if (count > 0) {
+          const confirmed = window.confirm(
+            `${count} existing schedules keep their old dates. Change the schedules separately if needed.`
+          );
+          if (!confirmed) {
+            return;
+          }
+        }
+      }
+    }
+
     const newCrops = [...crops];
     newCrops[index] = { ...newCrops[index], [field]: value };
 
@@ -527,151 +549,134 @@ export default function AddFarmerForm({
     setFormData(prev => ({ ...prev, lat, lon }));
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=en-US,en`,
-        {
-          headers: {
-            "User-Agent": "VionexSmartFarming/1.0",
-          },
+      const geoData = await reverseGeocodeWithFallback(lat, lon);
+      if (!geoData) {
+        alert("लोकेशनवरून पत्ता शोधण्यात अडचण आली. कृपया मॅन्युअली पत्ता भरा (Could not resolve address from GPS. Please enter address manually).");
+        return;
+      }
+
+      const {
+        rawState,
+        rawDistrict,
+        rawTaluka,
+        rawVillage,
+        rawPincode,
+        addrValues,
+        displayName,
+        country,
+      } = geoData;
+
+      const cleanAndNormalize = (str: string): string => {
+        if (!str) return "";
+        return str.toLowerCase()
+          .replace(/\(.*\)/g, "")
+          .replace(/district|tehsil|taluka|taluk|subdistrict|division|village|town|city|state/g, "")
+          .replace(/[^a-z0-9]/g, "")
+          .trim();
+      };
+
+      const isNameMatch = (nameA: string, nameB: string): boolean => {
+        if (!nameA || !nameB) return false;
+        const normA = cleanAndNormalize(nameA);
+        const normB = cleanAndNormalize(nameB);
+        if (!normA || !normB) return false;
+        
+        if (normA === normB) {
+          return true;
         }
-      );
-          const data = await response.json();
+        
+        if (normA.length >= 5 && normB.length >= 5) {
+          if (normA.includes(normB) || normB.includes(normA)) {
+            return true;
+          }
+        }
+        
+        return false;
+      };
 
-          if (data && data.address) {
-            const address = data.address;
+      // Check if it's Maharashtra
+      const isMaha = rawState.toLowerCase().includes("maharashtra") ||
+                     addrValues.some(v => v.toLowerCase().includes("maharashtra")) ||
+                     MAHARASHTRA_DISTRICTS.some(d => isNameMatch(d, rawDistrict));
+
+      let finalState = "Other";
+      let finalDistrict = "";
+      let finalTaluka = "";
+      let finalVillage = "";
+      let setManual = true;
+
+      if (isMaha) {
+        finalState = "Maharashtra";
+
+        // 1. Find matched district
+        let matchedDist = MAHARASHTRA_DISTRICTS.find(d => isNameMatch(d, rawDistrict));
+        if (!matchedDist) {
+          matchedDist = MAHARASHTRA_DISTRICTS.find(d => addrValues.some(val => isNameMatch(d, val)));
+        }
+        finalDistrict = matchedDist || rawDistrict || "Yavatmal";
+
+        // 2. Find matched taluka
+        const talukas = getTalukasForDistrict(finalDistrict);
+        let matchedTal = talukas.find(t => isNameMatch(t, rawTaluka));
+        if (!matchedTal) {
+          matchedTal = talukas.find(t => addrValues.some(val => isNameMatch(t, val)));
+        }
+        finalTaluka = matchedTal || rawTaluka || "";
+
+        // 3. Find matched village
+        if (finalTaluka) {
+          const villages = getVillagesForTaluka(finalTaluka);
+          
+          // Prioritize rawVillage (from address.village, hamlet, etc.)
+          let matchedVill = villages.find(v => isNameMatch(v, rawVillage));
+          
+          if (matchedVill) {
+            finalVillage = matchedVill;
+            setManual = false;
+          } else {
+            // Fallback: check other address fields, but avoid aggressive matching
+            const exactVill = villages.find(v => {
+              const normV = cleanAndNormalize(v);
+              return addrValues.some(val => cleanAndNormalize(val) === normV);
+            });
             
-            const rawState = address.state || "";
-            const rawDistrict = address.state_district || address.district || address.county || address.city_district || "";
-            const rawTaluka = address.subdistrict || address.tehsil || address.taluk || address.suburb || address.taluka || address.city || address.town || address.municipality || "";
-            const rawVillage = address.village || address.suburb || address.town || address.neighbourhood || address.hamlet || address.locality || address.croft || "";
-            
-            const extractPincode = (p: string, d: string): string => {
-              const combined = `${p || ""} ${d || ""}`;
-              const match = combined.match(/\b\d{6}\b/);
-              return match ? match[0] : "";
-            };
-
-            const rawPincode = extractPincode(address.postcode, data.display_name);
-
-            // Gather all text values from structured address and comma-split display name
-            const addrValues = [
-              ...Object.values(address).map(v => String(v)),
-              ...(data.display_name ? data.display_name.split(",").map(s => s.trim()) : [])
-            ].filter(Boolean);
-
-            const cleanAndNormalize = (str: string): string => {
-              if (!str) return "";
-              return str.toLowerCase()
-                .replace(/\(.*\)/g, "")
-                .replace(/district|tehsil|taluka|taluk|subdistrict|division|village|town|city|state/g, "")
-                .replace(/[^a-z0-9]/g, "")
-                .trim();
-            };
-
-            const isNameMatch = (nameA: string, nameB: string): boolean => {
-              if (!nameA || !nameB) return false;
-              const normA = cleanAndNormalize(nameA);
-              const normB = cleanAndNormalize(nameB);
-              if (!normA || !normB) return false;
-              
-              if (normA === normB) {
-                return true;
-              }
-              
-              if (normA.length >= 5 && normB.length >= 5) {
-                if (normA.includes(normB) || normB.includes(normA)) {
-                  return true;
-                }
-              }
-              
-              return false;
-            };
-
-            // Check if it's Maharashtra
-            const isMaha = rawState.toLowerCase().includes("maharashtra") ||
-                           addrValues.some(v => v.toLowerCase().includes("maharashtra")) ||
-                           MAHARASHTRA_DISTRICTS.some(d => isNameMatch(d, rawDistrict));
-
-            let finalState = "Other";
-            let finalDistrict = "";
-            let finalTaluka = "";
-            let finalVillage = "";
-            let setManual = true;
-
-            if (isMaha) {
-              finalState = "Maharashtra";
-
-              // 1. Find matched district
-              let matchedDist = MAHARASHTRA_DISTRICTS.find(d => isNameMatch(d, rawDistrict));
-              if (!matchedDist) {
-                matchedDist = MAHARASHTRA_DISTRICTS.find(d => addrValues.some(val => isNameMatch(d, val)));
-              }
-              finalDistrict = matchedDist || rawDistrict || "Yavatmal";
-
-              // 2. Find matched taluka
-              const talukas = getTalukasForDistrict(finalDistrict);
-              let matchedTal = talukas.find(t => isNameMatch(t, rawTaluka));
-              if (!matchedTal) {
-                matchedTal = talukas.find(t => addrValues.some(val => isNameMatch(t, val)));
-              }
-              finalTaluka = matchedTal || rawTaluka || "";
-
-              // 3. Find matched village
-              if (finalTaluka) {
-                const villages = getVillagesForTaluka(finalTaluka);
-                
-                // Prioritize rawVillage (from address.village, hamlet, etc.)
-                let matchedVill = villages.find(v => isNameMatch(v, rawVillage));
-                
-                if (matchedVill) {
-                  finalVillage = matchedVill;
-                  setManual = false;
-                } else {
-                  // Fallback: check other address fields, but avoid aggressive matching
-                  // We only check if it matches EXACTLY to avoid "Siddhewadi road" matching "Siddhewadi"
-                  const exactVill = villages.find(v => {
-                    const normV = cleanAndNormalize(v);
-                    return addrValues.some(val => cleanAndNormalize(val) === normV);
-                  });
-                  
-                  if (exactVill) {
-                    finalVillage = exactVill;
-                    setManual = false;
-                  } else {
-                    finalVillage = rawVillage;
-                    setManual = true;
-                  }
-                }
-              } else {
-                finalVillage = rawVillage;
-                setManual = true;
-              }
+            if (exactVill) {
+              finalVillage = exactVill;
+              setManual = false;
             } else {
-              finalState = rawState || "Other";
-              finalDistrict = rawDistrict;
-              finalTaluka = rawTaluka;
               finalVillage = rawVillage;
               setManual = true;
             }
-
-            setIsManualVillage(setManual);
-            setFormData((prev) => ({
-              ...prev,
-              address: data.display_name,
-              pincode: rawPincode,
-              state: finalState,
-              district: finalDistrict,
-              taluka: finalTaluka,
-              village: finalVillage,
-              country: (address.country === "India" || address.country_code === "in") ? "India" : (address.country || prev.country),
-            }));
           }
-        } catch (error) {
-          console.error("Error detecting location:", error);
-          alert("लोकेशन शोधण्यात अडचण आली.");
-        } finally {
-          setIsDetectingLocation(false);
+        } else {
+          finalVillage = rawVillage;
+          setManual = true;
         }
+      } else {
+        finalState = rawState || "Other";
+        finalDistrict = rawDistrict;
+        finalTaluka = rawTaluka;
+        finalVillage = rawVillage;
+        setManual = true;
+      }
+
+      setIsManualVillage(setManual);
+      setFormData((prev) => ({
+        ...prev,
+        address: displayName,
+        pincode: rawPincode,
+        state: finalState,
+        district: finalDistrict,
+        taluka: finalTaluka,
+        village: finalVillage,
+        country: country === "India" ? "India" : (country || prev.country),
+      }));
+    } catch (error) {
+      console.error("Error detecting location:", error);
+      alert("लोकेशनवरून पत्ता शोधण्यात अडचण आली. कृपया मॅन्युअली पत्ता भरा (Could not resolve address from GPS. Please enter address manually).");
+    } finally {
+      setIsDetectingLocation(false);
+    }
   };
 
   const handlePincodeChange = async (

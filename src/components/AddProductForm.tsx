@@ -6,6 +6,7 @@ import { saveItem, syncCollection } from "../lib/data-sync";
 import { translateDoseToEnglish, translateMarathiToEnglish, standardizeCategory } from "../lib/utils";
 import { standardizeCompanyName } from "../lib/company-helper";
 import { getApiUrl, getAuthHeaders } from "../lib/config";
+import { fetchWithTimeout } from "../lib/fetchWithTimeout";
 
 
 const CATALOG_PRODUCTS: any[] = [];
@@ -567,6 +568,7 @@ export default function AddProductForm({
   const [onlineResults, setOnlineResults] = useState<any[]>([]);
   const [isSearchedOnline, setIsSearchedOnline] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isWaking, setIsWaking] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [submitError, setSubmitError] = useState("");
 
@@ -915,6 +917,7 @@ export default function AddProductForm({
   const handleOnlineSearch = async () => {
     if (!searchTerm.trim()) return;
     setIsSearching(true);
+    setIsWaking(false);
     setSearchError("");
     setShowSuggestions(true);
     setIsSearchedOnline(false);
@@ -935,11 +938,11 @@ export default function AddProductForm({
     while (attempt < maxRetries && !success) {
       try {
         attempt++;
-        const res = await fetch(apiUrl, {
+        const res = await fetchWithTimeout(apiUrl, {
           method: "POST",
           headers: await getAuthHeaders(),
           body: JSON.stringify({ query: searchTerm }),
-        });
+        }, 45000, () => setIsWaking(true));
 
         if (!res.ok) {
           const text = await res.text();
@@ -1132,18 +1135,35 @@ export default function AddProductForm({
           {showSuggestions && searchTerm && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-1 duration-150">
               {isSearching && (
-                <div className="p-3 bg-blue-50/70 border-b border-blue-100 flex items-center justify-center gap-2 text-slate-600">
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-600 shrink-0" />
-                  <p className="text-[11px] font-medium">
-                    वेबवरून अतिरिक्त माहिती शोधत आहे... (Searching online)
-                  </p>
+                <div className="p-3 bg-blue-50/70 border-b border-blue-100 flex flex-col items-center justify-center gap-1 text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-600 shrink-0" />
+                    <p className="text-[11px] font-medium">
+                      वेबवरून अतिरिक्त माहिती शोधत आहे... (Searching online)
+                    </p>
+                  </div>
+                  {isWaking && (
+                    <p className="text-[10px] text-slate-500 text-center">
+                      सर्व्हर सुरू होत आहे, यास एक मिनिट लागू शकतो<br />
+                      <span className="text-[9px] text-slate-400 font-sans">
+                        (Server is waking up, this can take up to a minute)
+                      </span>
+                    </p>
+                  )}
                 </div>
               )}
 
               {/* Online Search Error (or Quota notice) rendered as a supportive alert, NOT a critical stop */}
               {!isSearching && searchError && onlineResults.length === 0 && (
-                <div className="p-3 bg-amber-50 border-b border-amber-100 text-amber-800 text-[11px] font-medium leading-relaxed">
-                  ⚠️ {searchError}
+                <div className="p-3 bg-amber-50 border-b border-amber-100 text-amber-800 text-[11px] font-medium leading-relaxed flex items-center justify-between gap-2">
+                  <span>⚠️ {searchError}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleOnlineSearch()}
+                    className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold shrink-0 transition"
+                  >
+                    पुन्हा प्रयत्न करा (Retry)
+                  </button>
                 </div>
               )}
 

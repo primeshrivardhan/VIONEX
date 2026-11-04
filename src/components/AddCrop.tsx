@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Crop } from "../types";
-import { ArrowLeft, Save, Mic, MicOff } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import DatePicker from "./DatePicker";
 
 interface Props {
@@ -17,37 +17,6 @@ export default function AddCrop({ onSave, onCancel }: Props) {
     area: "",
     notes: "",
   });
-  const [isListening, setIsListening] = useState(false);
-
-  const startListening = () => {
-    if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition ||
-        (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.lang = "mr-IN";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-
-      recognition.onstart = () => setIsListening(true);
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setFormData((prev) => ({
-          ...prev,
-          notes: prev.notes ? `${prev.notes} ${transcript}` : transcript,
-        }));
-      };
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        setIsListening(false);
-      };
-      recognition.onend = () => setIsListening(false);
-
-      recognition.start();
-    } else {
-      alert("तुमच्या ब्राउझरमध्ये व्हॉइस टायपिंगची सुविधा नाही.");
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,27 +141,10 @@ export default function AddCrop({ onSave, onCancel }: Props) {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="mb-1">
               <label className="block text-xs font-bold text-slate-500 uppercase">
                 इतर माहिती (पर्यायी)
               </label>
-              <button
-                type="button"
-                onClick={startListening}
-                disabled={isListening}
-                className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg transition-colors ${
-                  isListening
-                    ? "bg-red-100 text-red-600 animate-pulse"
-                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                }`}
-              >
-                {isListening ? (
-                  <MicOff className="w-3.5 h-3.5" />
-                ) : (
-                  <Mic className="w-3.5 h-3.5" />
-                )}
-                {isListening ? "ऐकत आहे..." : "बोलून माहिती द्या"}
-              </button>
             </div>
             <textarea
               rows={3}

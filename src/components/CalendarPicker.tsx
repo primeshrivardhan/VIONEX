@@ -12,7 +12,16 @@ interface CalendarPickerProps {
 
 export default function CalendarPicker({ selectedDate, onSelectDate, schedules, farmerId, cropName, cropId }: CalendarPickerProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
-    return selectedDate ? new Date(selectedDate) : new Date();
+    if (selectedDate && typeof selectedDate === "string") {
+      const parts = selectedDate.split(/[-/]/).map((p) => parseInt(p, 10));
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        if (parts[0] > 1000) {
+          return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+    }
+    return new Date();
   });
 
   const nextMonth = (e: React.MouseEvent) => {
@@ -43,6 +52,9 @@ export default function CalendarPicker({ selectedDate, onSelectDate, schedules, 
       .map(s => s.scheduleDate);
   }, [schedules, farmerId, cropName, cropId]);
 
+  const localToday = new Date();
+  const todayStr = `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, '0')}-${String(localToday.getDate()).padStart(2, '0')}`;
+
   const days = [];
   for (let i = 0; i < startDay; i++) {
     days.push(<div key={`empty-${i}`} className="h-9 w-9"></div>);
@@ -55,7 +67,7 @@ export default function CalendarPicker({ selectedDate, onSelectDate, schedules, 
     // Check if this date has a schedule for the selected farmer
     const hasSchedule = farmerSchedulesDates.includes(dateStr);
     const isSelected = selectedDate === dateStr;
-    const isToday = dateStr === new Date().toISOString().split('T')[0];
+    const isToday = dateStr === todayStr;
 
     days.push(
       <button

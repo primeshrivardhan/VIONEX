@@ -5,8 +5,10 @@ import { collection, query, where, getDocs, doc, setDoc } from "firebase/firesto
 import { MAHARASHTRA_DISTRICTS, getTalukasForDistrict, getVillagesForTaluka } from "../lib/maharashtra-locations";
 import { getSmartLocation } from "../lib/geo-helper";
 import { Dealer } from "../types";
+import NeutralPublicPortal from "./NeutralPublicPortal";
 
 export default function StandaloneDealerForm() {
+  const [showConsultantForm, setShowConsultantForm] = useState(false);
   const [formData, setFormData] = useState({
     shopName: "",
     name: "",
@@ -168,15 +170,19 @@ export default function StandaloneDealerForm() {
     }
   };
 
+  if (showConsultantForm) {
+    return <NeutralPublicPortal initialTab="consultant" />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="bg-indigo-600 px-6 py-8 text-center relative">
           <button
-            onClick={() => window.open(window.location.origin + "/public-gateway?type=consultant", "_blank")}
+            onClick={() => setShowConsultantForm(true)}
             className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
           >
-            Consulting Farm
+            Consulting Form
           </button>
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <Store className="w-8 h-8 text-white" />

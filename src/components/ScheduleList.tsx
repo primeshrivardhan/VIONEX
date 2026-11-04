@@ -31,6 +31,12 @@ import { translateDoseToEnglish, isScheduleForFarmer, translateCompositionToMara
 import { UserPermissions } from "../types";
 import { HOSTING_URL } from "../lib/config";
 import { registerBackHandler } from "../lib/backNavigation";
+import {
+  googleCalendarUrl,
+  schedulesToCalendarEvents,
+  scheduleToCalendarEvent,
+  downloadIcsFile,
+} from "../lib/calendarExport";
 
 interface Product {
   brandName: string;
@@ -65,6 +71,69 @@ interface Schedule {
   dayNo?: number;
   varietyName?: string;
   farmerName?: string;
+  createdAt?: any;
+}
+
+export function toDateKey(v: any): string {
+  if (!v || typeof v !== "string") return "";
+  const trimmed = v.trim();
+  if (!trimmed) return "";
+  const parts = trimmed.split(/[-/]/);
+  if (parts.length < 3) return "";
+
+  let y: number, m: number, d: number;
+  if (parts[0].length === 4) {
+    y = parseInt(parts[0], 10);
+    m = parseInt(parts[1], 10);
+    d = parseInt(parts[2], 10);
+  } else {
+    d = parseInt(parts[0], 10);
+    m = parseInt(parts[1], 10);
+    y = parseInt(parts[2], 10);
+  }
+
+  if (isNaN(y) || isNaN(m) || isNaN(d) || y <= 0 || m < 1 || m > 12 || d < 1 || d > 31) {
+    return "";
+  }
+
+  const mm = String(m).padStart(2, "0");
+  const dd = String(d).padStart(2, "0");
+  const yyyy = String(y).padStart(4, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export function toMillis(v: any): number {
+  if (typeof v === "number") {
+    return isNaN(v) ? 0 : v;
+  }
+  if (!v) return 0;
+  if (typeof v === "object") {
+    if (typeof v.toMillis === "function") {
+      try {
+        const ms = v.toMillis();
+        return typeof ms === "number" && !isNaN(ms) ? ms : 0;
+      } catch {
+        return 0;
+      }
+    }
+    if (typeof v.seconds === "number" && !isNaN(v.seconds)) {
+      const nano = typeof v.nanoseconds === "number" && !isNaN(v.nanoseconds) ? v.nanoseconds : 0;
+      return v.seconds * 1000 + Math.floor(nano / 1000000);
+    }
+    if (typeof v._seconds === "number" && !isNaN(v._seconds)) {
+      const nano = typeof v._nanoseconds === "number" && !isNaN(v._nanoseconds) ? v._nanoseconds : 0;
+      return v._seconds * 1000 + Math.floor(nano / 1000000);
+    }
+  }
+  if (typeof v === "string") {
+    const trimmed = v.trim();
+    if (!trimmed) return 0;
+    const parsed = Date.parse(trimmed);
+    if (!isNaN(parsed)) return parsed;
+    const num = Number(trimmed);
+    if (!isNaN(num) && isFinite(num)) return num;
+  }
+  return 0;
 }
 
 interface ScheduleListProps {
@@ -484,16 +553,39 @@ export default function ScheduleList({
 
   const sortedSchedules = useMemo(() => {
     return [...filteredSchedules].sort((a, b) => {
-      const dayA = parseInt(a.day, 10) || 0;
-      const dayB = parseInt(b.day, 10) || 0;
-      return dayA - dayB;
+      const keyA = toDateKey(a.scheduleDate);
+      const keyB = toDateKey(b.scheduleDate);
+      if (keyA && keyB) {
+        const cmp = keyA.localeCompare(keyB);
+        if (cmp !== 0) return cmp;
+      } else if (keyA && !keyB) {
+        return -1;
+      } else if (!keyA && keyB) {
+        return 1;
+      }
+
+      // Fall back to integer day
+      const dayA = parseInt(a.day, 10);
+      const dayB = parseInt(b.day, 10);
+      const validDayA = !isNaN(dayA);
+      const validDayB = !isNaN(dayB);
+      if (validDayA && validDayB && dayA !== dayB) {
+        return dayA - dayB;
+      }
+      if (validDayA && !validDayB) return -1;
+      if (!validDayA && validDayB) return 1;
+
+      // Fall back to createdAt
+      const createdA = toMillis(a.createdAt);
+      const createdB = toMillis(b.createdAt);
+      return createdA - createdB;
     });
   }, [filteredSchedules]);
 
   const groupedSchedules = useMemo(() => {
     const groups: { [date: string]: typeof sortedSchedules } = {};
     sortedSchedules.forEach((s) => {
-      const d = s.scheduleDate;
+      const d = s.scheduleDate || "";
       if (!groups[d]) {
         groups[d] = [];
       }
@@ -502,11 +594,26 @@ export default function ScheduleList({
 
     return Object.keys(groups)
       .sort((dateA, dateB) => {
+        const keyA = toDateKey(dateA);
+        const keyB = toDateKey(dateB);
+        if (keyA && keyB) {
+          const cmp = keyA.localeCompare(keyB);
+          if (cmp !== 0) return cmp;
+        } else if (keyA && !keyB) {
+          return -1;
+        } else if (!keyA && keyB) {
+          return 1;
+        }
         const firstA = groups[dateA][0];
         const firstB = groups[dateB][0];
-        const dayA = parseInt(firstA.day, 10) || 0;
-        const dayB = parseInt(firstB.day, 10) || 0;
-        return dayA - dayB;
+        const dayA = parseInt(firstA?.day, 10);
+        const dayB = parseInt(firstB?.day, 10);
+        if (!isNaN(dayA) && !isNaN(dayB) && dayA !== dayB) {
+          return dayA - dayB;
+        }
+        const createdA = toMillis(firstA?.createdAt);
+        const createdB = toMillis(firstB?.createdAt);
+        return createdA - createdB;
       })
       .map((date) => {
         const sortedItems = [...groups[date]].sort((a, b) => {
@@ -621,6 +728,49 @@ export default function ScheduleList({
   };
 
   const takePhoto = () => setPreviewModalOpen(true);
+
+  const handleAddToGoogleCalendar = (schedule: Schedule) => {
+    const event = scheduleToCalendarEvent(schedule, activePlot?.cropName);
+    if (!event) {
+      alert(
+        isEn
+          ? "This schedule does not have a valid date to add to Google Calendar."
+          : "या शेड्युलमध्ये Google कॅलेंडरमध्ये जोडण्यासाठी वैध तारीख नाही."
+      );
+      return;
+    }
+    const url = googleCalendarUrl(event);
+    window.open(url, "_blank");
+  };
+
+  const handleDownloadVisibleIcs = async () => {
+    if (sortedSchedules.length === 0) return;
+    const { events, skippedCount } = schedulesToCalendarEvents(
+      sortedSchedules,
+      activePlot?.cropName
+    );
+    if (events.length === 0) {
+      alert(
+        isEn
+          ? "No schedules with valid dates found to export."
+          : "कॅलेंडरमध्ये जोडण्यासाठी वैध तारीख असलेले कोणतेही वेळापत्रक सापडले नाही."
+      );
+      return;
+    }
+    const cropStr = (activePlot?.cropName || "crop").replace(
+      /[^a-zA-Z0-9_\u0900-\u097F]/g,
+      "_"
+    );
+    const fileName = `schedule-${cropStr}-${new Date().toISOString().split("T")[0]}.ics`;
+    const success = await downloadIcsFile(events, fileName, language);
+    if (success && skippedCount > 0) {
+      alert(
+        isEn
+          ? `Downloaded calendar with ${events.length} schedule(s). (${skippedCount} schedule(s) without valid dates were skipped)`
+          : `${events.length} शेड्युल कॅलेंडर फाइलमध्ये सेव्ह केले. (तारीख नसलेले ${skippedCount} शेड्युल वगळले)`
+      );
+    }
+  };
 
   const weatherAlerts = useMemo(
     () => [
@@ -963,7 +1113,7 @@ export default function ScheduleList({
                   </button>
                   <div className="w-[1px] h-5 bg-slate-200"></div>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (sortedSchedules.length === 0) return;
                       let copyText = `VIONEX SCHEDULE - ${activeFarmer?.name || "Farmer"}\n\n`;
                       sortedSchedules.forEach((s) => {
@@ -973,8 +1123,13 @@ export default function ScheduleList({
                         });
                         copyText += `\n`;
                       });
-                      navigator.clipboard.writeText(copyText);
-                      alert("वेळापत्रक कॉपी झाले!");
+                      try {
+                        await navigator.clipboard.writeText(copyText);
+                        alert("वेळापत्रक कॉपी झाले!");
+                      } catch (err) {
+                        console.error("Clipboard copy error:", err);
+                        alert("वेळापत्रक कॉपी करताना अडचण आली / Failed to copy schedule.");
+                      }
                     }}
                     className="flex-1 py-1.5 flex justify-center items-center text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
                     title="कॉपी करा"
@@ -1030,6 +1185,27 @@ export default function ScheduleList({
         {/* Schedule Cards Section */}
         {selectedFarmerId && activePlot && (
           <div className="space-y-4 pt-4 pb-12">
+            {sortedSchedules.length > 0 && (
+              <div className="flex justify-end items-center px-1">
+                <button
+                  type="button"
+                  onClick={handleDownloadVisibleIcs}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  title={
+                    isEn
+                      ? "Download calendar file (.ics) / कॅलेंडर फाइल डाउनलोड करा"
+                      : "कॅलेंडर फाइल डाउनलोड करा / Download calendar file (.ics)"
+                  }
+                >
+                  <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    {isEn
+                      ? "Download calendar file (.ics)"
+                      : "कॅलेंडर फाइल डाउनलोड करा (.ics)"}
+                  </span>
+                </button>
+              </div>
+            )}
             {listItems.length > 0 ? (
               <>
               {listItems.slice(0, pageSize).map((item, idx) => {
@@ -1499,6 +1675,30 @@ export default function ScheduleList({
                                 </div>
                               </div>
                             )}
+
+                            {/* Add to Google Calendar button per row */}
+                            <div className="pt-2 flex items-center justify-end border-t border-slate-50 mt-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddToGoogleCalendar(schedule);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200/60 rounded-lg transition-colors cursor-pointer"
+                                title={
+                                  isEn
+                                    ? "Add to Google Calendar / Google कॅलेंडरमध्ये जोडा"
+                                    : "Google कॅलेंडरमध्ये जोडा / Add to Google Calendar"
+                                }
+                              >
+                                <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                <span>
+                                  {isEn
+                                    ? "Add to Google Calendar"
+                                    : "Google कॅलेंडरमध्ये जोडा"}
+                                </span>
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
