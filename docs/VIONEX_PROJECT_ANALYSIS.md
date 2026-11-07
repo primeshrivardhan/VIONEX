@@ -536,6 +536,44 @@ Below is the exhaustive specification of every Cloud Firestore collection in VIO
 - **Universal File Export (`src/lib/fileDownload.ts`):** Automatically detects native platform; writes to `@capacitor/filesystem` cache and invokes native Android share dialog, or triggers blob download on desktop web.
 - **Hardware Back Button Handling (`src/lib/backNavigation.ts`):** Implements a LIFO stack. Pressing the native Android back button closes open confirmation modals, image sheets, or sub-drawers before popping screen navigation.
 
+### 6.9 Extended Capabilities & Integration Roadmap (Next-Gen Features)
+The following feature modules represent verified high-impact open-source expansions designed to integrate into the VIONEX ecosystem:
+
+1. **स्वयंचलित WhatsApp अलर्ट व वेळापत्रक (Automated WhatsApp Schedule Broadcast):**
+   - **Repository:** [`WhiskeySockets/Baileys`](https://github.com/WhiskeySockets/Baileys)
+   - **Tech Stack:** TypeScript / Node.js
+   - **Utility & Impact:** Enables direct, cost-free WhatsApp scheduling and pesticide alert broadcasts from the Node.js backend without third-party Twilio/Meta Business API fees. Sends automated calendar PDFs and morning spray reminders.
+
+2. **स्मार्ट खत व पोषण कॅल्क्युलेटर (Smart Soil NPK & Fertilizer Calculator):**
+   - **Repository:** [`venugopalkadamba/AgriAI_WebApp`](https://github.com/venugopalkadamba/AgriAI_WebApp)
+   - **Tech Stack:** React + Flask + Machine Learning
+   - **Utility & Impact:** Computes exact dosages of Urea, DAP, Potash (MOP), and secondary/micronutrients based on laboratory Soil Health Card N-P-K metrics and soil type, preventing over-fertilization.
+
+3. **शेताची हद्द नकाशावर आखणे (Farm Geo-Fencing & Area Measurement):**
+   - **Repository:** [`geoman-io/leaflet-geoman`](https://github.com/geoman-io/leaflet-geoman)
+   - **Tech Stack:** JavaScript / TypeScript / Leaflet
+   - **Utility & Impact:** Allows farmers and agronomists to draw and edit plot boundary polygons directly on touchscreens over satellite tiles, calculating exact acre and guntha measurements for precise dosage scaling.
+
+4. **रोजचे बाजारभाव ट्रॅकर (Live APMC / Mandi Bhav API):**
+   - **Repository:** [`Prajwal-Shrimali/agmarknetAPI`](https://github.com/Prajwal-Shrimali/agmarknetAPI)
+   - **Tech Stack:** Python / REST API (Agmarknet Wrapper)
+   - **Utility & Impact:** Scrapes and serves real-time daily minimum, maximum, and modal agricultural commodity prices (onion, soybean, cotton, grapes, tomato) across Maharashtra and national APMC mandis.
+
+5. **अचूक कृषी हवामान व फवारणी सल्ला (Hyper-Local Agro Weather Forecast):**
+   - **Repository:** [`open-meteo/open-meteo`](https://github.com/open-meteo/open-meteo)
+   - **Tech Stack:** Open-Source Weather API (No API key required / Zero Cost)
+   - **Utility & Impact:** Delivers hourly hyper-local precipitation probability, wind speed, and humidity data to generate deterministic "Spray Window" advisories, preventing chemical wastage during high winds or imminent rain.
+
+6. **पिक रोग निदान व पाने तपासणी (Deep Learning Plant Disease Detection):**
+   - **Repository:** [`pkparthk/Plant-Disease-Detection`](https://github.com/pkparthk/Plant-Disease-Detection)
+   - **Tech Stack:** Python / Deep Learning (CNN) / TensorFlow / Keras / Flask
+   - **Utility & Impact:** Classifies leaf pathology across 38+ crop-disease pairs from camera photos with >95% accuracy, providing immediate diagnostic labels and curative recommendations.
+
+7. **स्थानिक भाषा व्हॉइस कमांड व आवाज ओळख (Native Multilingual Speech Recognition):**
+   - **Repository:** [`capacitor-community/speech-recognition`](https://github.com/capacitor-community/speech-recognition)
+   - **Tech Stack:** Capacitor Native Plugin / Android SpeechRecognizer Subsystem
+   - **Utility & Impact:** Replaces non-functional WebView browser Web Speech APIs with native Android on-device speech recognition, enabling Marathi and Hindi voice queries for low-literacy field usability.
+
 ---
 
 ## 7. Algorithms and Core Logic

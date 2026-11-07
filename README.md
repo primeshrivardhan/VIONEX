@@ -13,8 +13,43 @@
 [![Capacitor](https://img.shields.io/badge/Capacitor-7.0_Native_Android-119EFF?style=for-the-badge&logo=capacitor&logoColor=white)](https://capacitorjs.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.1-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-[Architecture](#-system-architecture) • [Engineering Highlights](#-engineering-highlights) • [Tech Stack](#-technology-stack) • [API Reference](#-api-specifications) • [Security & RBAC](#-security--role-based-access-control-rbac) • [Getting Started](#-getting-started)
+[Architecture](#-system-architecture) • [Features](#-key-features--extended-capabilities) • [Engineering Highlights](#-engineering-highlights) • [Tech Stack](#-technology-stack) • [API Reference](#-api-specifications) • [Security & RBAC](#-security--role-based-access-control-rbac) • [Getting Started](#-getting-started)
 
+</div>
+
+<br/>
+
+<div align="center">
+  <table style="border: none; background: transparent;">
+    <tr>
+      <td align="center" style="border: none; background: transparent;">
+        <div style="display: inline-block; background-color: #386b88; color: #ffffff; padding: 6px 28px; border-radius: 9999px; font-weight: 700; font-size: 13px; letter-spacing: 0.5px; margin-bottom: -12px; position: relative; z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.15);">
+          Live release
+        </div>
+        <div style="background-color: #fbf5e8; border: 1px solid #ebd9b8; border-radius: 18px; padding: 22px 28px; width: 340px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.05); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 11.5px; font-weight: 700; color: #526071; margin-bottom: 2px;">Web app (PWA)</div>
+            <a href="https://vionex-d7055.web.app" target="_blank" style="font-size: 13.5px; font-weight: 700; color: #1e293b; text-decoration: underline;">vionex-d7055.web.app</a>
+          </div>
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 11.5px; font-weight: 700; color: #526071; margin-bottom: 2px;">Backend API</div>
+            <a href="https://vionex-4woy.onrender.com" target="_blank" style="font-size: 13.5px; font-weight: 700; color: #1e293b; text-decoration: underline;">vionex-4woy.onrender.com</a>
+          </div>
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 11.5px; font-weight: 700; color: #526071; margin-bottom: 2px;">Android APK</div>
+            <a href="https://vionex-4woy.onrender.com/download-apk" target="_blank" style="font-size: 13.5px; font-weight: 700; color: #1e293b; text-decoration: underline;">/download-apk endpoint</a> <span style="font-size: 12px; color: #64748b; font-weight: 600;">· 12.8 MB</span>
+          </div>
+          <div>
+            <div style="font-size: 11.5px; font-weight: 700; color: #526071; margin-bottom: 2px;">Source code</div>
+            <a href="https://github.com/primeshrivardhan/VIONEX" target="_blank" style="font-size: 13.5px; font-weight: 700; color: #1e293b; text-decoration: underline;">github.com/primeshrivardhan/VIONEX</a>
+          </div>
+        </div>
+        <div style="margin-top: 8px; font-size: 11.5px; color: #64748b; font-style: italic;">
+          APK updates purge the old service worker and cache...
+        </div>
+      </td>
+    </tr>
+  </table>
 </div>
 
 ---
@@ -30,6 +65,56 @@ The platform provides **automated AI crop diagnosis**, **dynamic weather alerts*
 - 🧠 **Resilient Gemini AI Engine**: Automated multi-tier fallback between Gemini models ensuring 99.9% AI advisory uptime even during upstream API rate limits.
 - 📱 **Native Android Delivery**: Compiled via Capacitor 7 with full access to hardware cameras (leaf pest capture), GPS geolocation (weather geofencing), and push notifications.
 - 🛡️ **Enterprise Security & Granular RBAC**: Multi-role permission system (Admin, Manager, Consultant, Sales, Farmer) with document-level ownership enforcement at both UI and Firestore security rule layers.
+
+---
+
+## 🌟 Key Features & Extended Capabilities (वैशिष्ट्ये व विस्तारित मॉड्यूल्स)
+
+VIONEX प्लॅटफॉर्म शेती व्यवस्थापन अधिक सुलभ, आधुनिक आणि स्वयंचलित बनवण्यासाठी खालील महत्त्वाच्या वैशिष्ट्यांवर आणि ओपन-सोर्स इंटिग्रेशनवर भर देतो:
+
+### १. स्वयंचलित WhatsApp अलर्ट व वेळापत्रक (Automated WhatsApp Schedule Broadcast)
+* **शेतकऱ्यांना थेट वेळापत्रक:** शेतकऱ्यांना रोजच्या फवारणीचे किंवा खतांचे वेळापत्रक थेट त्यांच्या WhatsApp वर पाठवण्यासाठी.
+* **ओपन-सोर्स रेपो:** [WhiskeySockets/Baileys](https://github.com/WhiskeySockets/Baileys)
+* **Tech Stack:** TypeScript / Node.js
+* **फायदा:** कोणतेही महागडे Twilio/Meta API शुल्क न भरता थेट Node.js बॅकएंडवरून शेतकऱ्यांना WhatsApp मेसेज, पीडीएफ वेळापत्रक आणि फवारणीचे रिमाइंडर्स पाठवता येतात.
+
+### २. स्मार्ट खत व पोषण कॅल्क्युलेटर (Smart Soil NPK & Fertilizer Calculator)
+* **माती परीक्षणानुसार खत व्यवस्थापन:** माती परीक्षणानुसार ($N$-$P$-$K$) पिकासाठी युरिया, डीएपी, पोटॅश आणि सूक्ष्म अन्नद्रव्यांचा अचूक डोस काढण्यासाठी.
+* **ओपन-सोर्स रेपो:** [venugopalkadamba/AgriAI_WebApp](https://github.com/venugopalkadamba/AgriAI_WebApp)
+* **Tech Stack:** React + Flask + Machine Learning
+* **फायदा:** हा प्रोजेक्ट थेट React वर आधारित आहे. मातीमधील नायट्रोजन (N), फॉस्फरस (P), पोटॅश (K) आणि जमिनीचा प्रकार टाकल्यास पिकासाठी योग्य खतांचे अचूक प्रमाण मिळते.
+
+### ३. शेताची हद्द नकाशावर आखणे (Farm Geo-Fencing & Area Measurement)
+* **डिजिटल प्लॉट मॅपिंग:** गुगल सॅटेलाइट नकाशावर शेतकऱ्याच्या शेताची हद्द (Boundary) बोटाने आखून अचूक क्षेत्रफळ (एकर/गुंठा) काढण्यासाठी.
+* **ओपन-सोर्स रेपो:** [geoman-io/leaflet-geoman](https://github.com/geoman-io/leaflet-geoman)
+* **Tech Stack:** JavaScript / TypeScript / Leaflet
+* **फायदा:** मोबाईल स्क्रीनवर शेताचे पॉलीगॉन (Polygon) सहज ड्रॉ करता येते. प्लॉट मॅपिंग आणि जीपीएस लोकेशनसाठी जगभरात वापरले जाणारे सर्वोत्तम ओपन-सोर्स टूल.
+
+### ४. रोजचे बाजारभाव ट्रॅकर (Live APMC / Mandi Bhav API)
+* **थेट बाजार भाव अपडेट:** महाराष्ट्रातील आणि देशभरातील कृषी उत्पन्न बाजार समित्यांचे चालू बाजारभाव ॲपमध्ये थेट दाखवण्यासाठी.
+* **ओपन-सोर्स रेपो:** [Prajwal-Shrimali/agmarknetAPI](https://github.com/Prajwal-Shrimali/agmarknetAPI)
+* **Tech Stack:** Python / REST API (Agmarknet Wrapper)
+* **फायदा:** कांदा, सोयाबीन, कापूस, टोमॅटो इत्यादी शेतमालाचे कृषी उत्पन्न बाजार समित्यांमधील रोजचे किमान, कमाल आणि सरासरी बाजारभाव मिळतात.
+
+### ५. अचूक कृषी हवामान व फवारणी सल्ला (Hyper-Local Agro Weather Forecast)
+* **स्थानिक हवामान व स्प्रे विंडो:** पाऊस, वाऱ्याचा वेग, आर्द्रता आणि फवारणीसाठी योग्य वेळ (Spray Window) सांगण्यासाठी.
+* **ओपन-सोर्स रेपो:** [open-meteo/open-meteo](https://github.com/open-meteo/open-meteo)
+* **Tech Stack:** Open-Source Weather API (No API key required / Zero Cost)
+* **फायदा:** कोणत्याही पेड API की शिवाय (Zero cost) तासाभराचा अचूक हवामान अंदाज, पाऊस कधी येईल आणि फवारणी कधी करावी हे शेतकऱ्यांना अचूक कळवण्यासाठी सर्वोत्तम.
+
+### ६. पिक रोग निदान व संगणकीय दृष्टी (Deep Learning Plant Disease Detection)
+* **कॅमेराद्वारे पानांचे रोग निदान:** मोबाईल कॅमेऱ्याने काढलेल्या पानांच्या फोटोवरून पिकांवरील रोगांचे त्वरित वर्गीकरण व ओळख पटवण्यासाठी.
+* **ओपन-सोर्स रेपो:** [pkparthk/Plant-Disease-Detection](https://github.com/pkparthk/Plant-Disease-Detection)
+* **Tech Stack:** Python / Deep Learning (CNN) / TensorFlow / Keras / Flask
+* **फायदा:** कॅमेरा किंवा गॅलरीतील पानांच्या फोटोवरून करपा, तांबेरा, भुरी यांसारख्या ३८+ रोगांचे ९५%+ अचूकतेने निदान करून त्वरित रासायनिक व सेंद्रिय उपायांची शिफारस.
+
+### ७. नेटिव्ह व्हॉइस कमांड व आवाज ओळख (Native Multilingual Speech Recognition)
+* **स्थानिक भाषेत बोलून शोधणे:** शेतकऱ्यांना टाईप न करता थेट मराठी किंवा हिंदीमध्ये बोलून औषधे शोधणे किंवा शेड्युल पाहण्याची सोय उपलब्ध करण्यासाठी.
+* **ओपन-सोर्स रेपो:** [capacitor-community/speech-recognition](https://github.com/capacitor-community/speech-recognition)
+* **Tech Stack:** Capacitor Native Plugin / Android SpeechRecognizer Subsystem
+* **फायदा:** अँड्रॉइड वेबव्ह्यूमध्ये बंद असणाऱ्या Web Speech API ऐवजी नेटिव्ह स्पीच रेकग्निशन वापरून कोणत्याही पेड क्लाउड API शिवाय स्थानिक भाषेत अखंड व्हॉइस इनपुट मिळते.
+
+---
 
 ---
 
