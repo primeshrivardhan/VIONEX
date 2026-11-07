@@ -3125,6 +3125,7 @@ export default function App() {
                           : []
                         : displayFarmersForSchedule
                     }
+                    dealers={dealers}
                     isFarmerView={isFarmer}
                     language={language}
                     permissions={currentUser?.permissions}

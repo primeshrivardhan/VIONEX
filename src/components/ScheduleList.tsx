@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import SchedulePreviewModal from "./SchedulePreviewModal";
+import { computeGap } from "../lib/scheduleGaps";
 import { saveItem } from "../lib/data-sync";
 import { auth, db } from "../lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
@@ -139,6 +140,7 @@ export function toMillis(v: any): number {
 interface ScheduleListProps {
   schedules: Schedule[];
   farmers: any[];
+  dealers?: any[];
   isFarmerView?: boolean;
   onAddSchedule: (prefill?: any) => void;
   onEditSchedule: (index: number) => void;
@@ -150,6 +152,7 @@ interface ScheduleListProps {
 export default function ScheduleList({
   schedules,
   farmers,
+  dealers = [],
   isFarmerView = false,
   onAddSchedule,
   onEditSchedule,
@@ -276,6 +279,19 @@ export default function ScheduleList({
       (f) => f.mobile === selectedFarmerId || f.id === selectedFarmerId,
     );
   }, [farmers, selectedFarmerId]);
+
+  const linkedDealer = useMemo(() => {
+    if (!activeFarmer?.dealer || !dealers || !Array.isArray(dealers)) return null;
+    const target = activeFarmer.dealer.trim().toLowerCase();
+    return (
+      dealers.find(
+        (d: any) =>
+          (d.shopName && d.shopName.trim().toLowerCase() === target) ||
+          (d.name && d.name.trim().toLowerCase() === target) ||
+          (d.id && String(d.id).trim().toLowerCase() === target)
+      ) || null
+    );
+  }, [activeFarmer, dealers]);
 
   const filteredFarmers = useMemo(() => {
     const query = farmerSearchQuery.trim().toLowerCase();
@@ -636,14 +652,16 @@ export default function ScheduleList({
     for (let i = 0; i < groupedSchedules.length; i++) {
       res.push({ type: "schedule", data: groupedSchedules[i] });
       if (i < groupedSchedules.length - 1) {
-        const currentDay = parseInt(groupedSchedules[i].day) || 0;
-        const nextDay = parseInt(groupedSchedules[i + 1].day) || 0;
-        if (nextDay - currentDay > 1) {
+        const currentDay = parseInt(groupedSchedules[i].day, 10);
+        const nextDay = parseInt(groupedSchedules[i + 1].day, 10);
+        const gap = computeGap(currentDay, nextDay);
+        if (gap) {
           res.push({
             type: "gap",
-            startDay: currentDay + 1,
-            endDay: nextDay - 1,
-            gapDays: nextDay - currentDay - 1,
+            gap,
+            startDay: gap.from,
+            endDay: gap.to,
+            gapDays: gap.count,
           });
         }
       }
@@ -727,7 +745,19 @@ export default function ScheduleList({
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
-  const takePhoto = () => setPreviewModalOpen(true);
+  const takePhoto = async () => {
+    if (sortedSchedules.length === 0) {
+      const msg = isEn ? "No schedule to share" : "शेड्यूल नाही / No schedule to share";
+      try {
+        const { Toast } = await import("@capacitor/toast");
+        await Toast.show({ text: msg, duration: "short" });
+      } catch {
+        alert(msg);
+      }
+      return;
+    }
+    setPreviewModalOpen(true);
+  };
 
   const handleAddToGoogleCalendar = (schedule: Schedule) => {
     const event = scheduleToCalendarEvent(schedule, activePlot?.cropName);
@@ -1098,8 +1128,17 @@ export default function ScheduleList({
                   <div className="w-[1px] h-5 bg-slate-200"></div>
                   <button
                     onClick={takePhoto}
-                    className="flex-1 py-1.5 flex justify-center items-center text-cyan-600 hover:bg-cyan-100 rounded-lg transition-colors"
-                    title="फोटो काढा / डाउनलोड"
+                    disabled={sortedSchedules.length === 0}
+                    className={`flex-1 py-1.5 flex justify-center items-center rounded-lg transition-colors ${
+                      sortedSchedules.length === 0
+                        ? "text-slate-300 cursor-not-allowed"
+                        : "text-cyan-600 hover:bg-cyan-100"
+                    }`}
+                    title={
+                      sortedSchedules.length === 0
+                        ? (isEn ? "No schedule to share" : "शेड्यूल नाही")
+                        : (isEn ? "Preview / Download" : "फोटो काढा / डाउनलोड")
+                    }
                   >
                     <Camera className="w-5 h-5 drop-shadow-sm" />
                   </button>
@@ -1142,12 +1181,22 @@ export default function ScheduleList({
 
             {/* Crop Filter Section */}
             <div className={`pt-2 ${isFarmerView ? "space-y-2" : "space-y-2"}`}>
-              {isFarmerView && activeFarmer?.dealer && (
-                <div className="flex items-center gap-1.5 px-1">
+              {activeFarmer?.dealer && (
+                <div className="flex items-center gap-1.5 px-1 flex-wrap">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                   <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">
-                    अधिकृत विक्रेता: {activeFarmer.dealer}
+                    {isEn ? "DEALER: " : "अधिकृत विक्रेता: "}{linkedDealer?.shopName || activeFarmer.dealer}
                   </span>
+                  {linkedDealer?.name && (
+                    <span className="text-[9px] font-bold text-slate-500">
+                      (PROP. {linkedDealer.name})
+                    </span>
+                  )}
+                  {linkedDealer?.mobile && (
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      📞 {linkedDealer.mobile}
+                    </span>
+                  )}
                 </div>
               )}
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-2 px-1">
@@ -1219,14 +1268,13 @@ export default function ScheduleList({
                         <Leaf className="w-5 h-5 text-amber-600" />
                       </div>
                       <div>
-                        <h4 className="text-amber-800 font-extrabold text-xs mb-0.5">
-                          गॅप कालावधी - {item.gapDays} दिवस विश्रांती (Gap
-                          Period) 😴
+                        <h4 className="text-amber-800 font-extrabold text-xs">
+                          {item.gap
+                            ? (isEn ? item.gap.englishText : item.gap.marathiText)
+                            : (isEn
+                                ? (item.gapDays === 1 ? `Gap day ${item.startDay} (1-day gap)` : `Gap days ${item.startDay} to ${item.endDay} (${item.gapDays}-day gap)`)
+                                : (item.gapDays === 1 ? `गॅप दिवस ${item.startDay} (1 दिवस गॅप)` : `गॅप दिवस ${item.startDay} ते ${item.endDay} (${item.gapDays} दिवस गॅप)`))}
                         </h4>
-                        <p className="text-amber-600 text-[10px] font-bold font-sans">
-                          दिवस {item.startDay} ते दिवस {item.endDay} पर्यंत गॅप.
-                          या काळात कोणतेही औषध फवारणी किंवा ठिबक नियोजन नाही.
-                        </p>
                       </div>
                     </div>
                   );
@@ -1754,6 +1802,7 @@ export default function ScheduleList({
           farmer={activeFarmer}
           cropName={activePlot?.displayLabel || selectedCrop}
           cropMeta={activeCropMeta}
+          dealer={linkedDealer}
           language={language}
           onClose={() => setPreviewModalOpen(false)}
         />

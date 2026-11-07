@@ -682,63 +682,47 @@ export default memo(function ProductList({
                   <div className="border-t border-slate-100 bg-slate-50/60 p-3.5 sm:p-4 space-y-2 animate-in fade-in duration-150">
                     <p className="text-[11px] text-slate-700 flex justify-between gap-2">
                       <span className="font-bold text-slate-500 shrink-0">{isEn ? "Company –" : "कंपनी –"}</span>
-                      <span className="font-medium text-right">{product.companyName}</span>
+                      <span className="font-medium text-right">{product.companyName || "N/A"}</span>
                     </p>
                     
                     <p className="text-[11px] text-slate-700 flex justify-between gap-2">
                       <span className="font-bold text-slate-500 shrink-0">{isEn ? "Category –" : "श्रेणी –"}</span>
-                      <span className="font-medium text-right">{getSingleLangLabel(product.category, isEn)}</span>
+                      <span className="font-medium text-right">{getSingleLangLabel(product.category, isEn) || "N/A"}</span>
                     </p>
 
-                    {product.modeOfAction && (
-                      <p className="text-[11px] text-slate-700 flex justify-between gap-2">
-                        <span className="font-bold text-slate-500 shrink-0">{isEn ? "Mode of Action –" : "कृती पद्धत –"}</span>
-                        <span className="font-medium text-right">{getSingleLangLabel(product.modeOfAction, isEn)}</span>
-                      </p>
-                    )}
+                    <p className="text-[11px] text-slate-700 flex justify-between gap-2">
+                      <span className="font-bold text-slate-500 shrink-0">{isEn ? "Mode of Action –" : "कृती पद्धत –"}</span>
+                      <span className="font-medium text-right">{getSingleLangLabel(product.modeOfAction, isEn) || "N/A"}</span>
+                    </p>
 
-                    {product.composition && (
-                      <div className="pt-1.5 border-t border-slate-200/60">
-                        <p className="text-[11px] font-bold text-emerald-700 mb-0.5">{isEn ? "Composition –" : "घटक –"}</p>
-                        <p className="text-[11px] text-emerald-800 font-medium leading-tight">
-                          {isEn ? product.composition : translateCompositionToMarathi(product.composition)}
-                        </p>
-                      </div>
-                    )}
-
-                    {product.targetCrops && (
-                      <p className="text-[11px] text-slate-700 leading-tight">
-                        <span className="font-bold text-slate-500">{isEn ? "Recommended Crops –" : "शिफारस पिके –"}</span> {product.targetCrops}
+                    <div className="pt-1.5 border-t border-slate-200/60">
+                      <p className="text-[11px] font-bold text-emerald-700 mb-0.5">{isEn ? "Composition –" : "घटक –"}</p>
+                      <p className="text-[11px] text-emerald-800 font-medium leading-tight">
+                        {isEn ? (product.composition || "N/A") : (product.composition ? translateCompositionToMarathi(product.composition) : "N/A")}
                       </p>
-                    )}
+                    </div>
 
-                    {(product.targetPests || product.targetDiseases) && (
-                      <p className="text-[11px] text-slate-700 leading-tight">
-                        <span className="font-bold text-slate-500">{isEn ? "Target Pest / Disease –" : "कीड / रोग नियंत्रण –"}</span> {product.targetPests || product.targetDiseases}
-                      </p>
-                    )}
+                    <p className="text-[11px] text-slate-700 leading-tight">
+                      <span className="font-bold text-slate-500">{isEn ? "Recommended Crops –" : "शिफारस पिके –"}</span> {product.targetCrops || "N/A"}
+                    </p>
+
+                    <p className="text-[11px] text-slate-700 leading-tight">
+                      <span className="font-bold text-slate-500">{isEn ? "Target Pest / Disease –" : "कीड / रोग नियंत्रण –"}</span> {product.targetPests || product.targetDiseases || "N/A"}
+                    </p>
 
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-1.5 border-t border-slate-200/60">
-                      {product.doseSpray && (
-                        <p className="text-[11px] text-slate-700">
-                          <span className="font-bold text-slate-500 block">{isEn ? "Spray Dose –" : "फवारणी मात्रा –"}</span> {product.doseSpray}
-                        </p>
-                      )}
-                      {product.doseDrip && (
-                        <p className="text-[11px] text-slate-700">
-                          <span className="font-bold text-slate-500 block">{isEn ? "Drip Dose –" : "ठिबक मात्रा –"}</span> {product.doseDrip}
-                        </p>
-                      )}
-                      {product.doseDrenching && (
-                        <p className="text-[11px] text-slate-700">
-                          <span className="font-bold text-slate-500 block">{isEn ? "Drenching Dose –" : "आळवणी मात्रा –"}</span> {product.doseDrenching}
-                        </p>
-                      )}
-                      {product.doseBasal && (
-                        <p className="text-[11px] text-slate-700">
-                          <span className="font-bold text-slate-500 block">{isEn ? "Basal Dose –" : "जमिनीत देण्याची मात्रा –"}</span> {product.doseBasal}
-                        </p>
-                      )}
+                      <p className="text-[11px] text-slate-700">
+                        <span className="font-bold text-slate-500 block">{isEn ? "Spray Dose –" : "फवारणी मात्रा –"}</span> {product.doseSpray || "N/A"}
+                      </p>
+                      <p className="text-[11px] text-slate-700">
+                        <span className="font-bold text-slate-500 block">{isEn ? "Drip Dose –" : "ठिबक मात्रा –"}</span> {product.doseDrip || "N/A"}
+                      </p>
+                      <p className="text-[11px] text-slate-700">
+                        <span className="font-bold text-slate-500 block">{isEn ? "Drenching Dose –" : "आळवणी मात्रा –"}</span> {product.doseDrenching || "N/A"}
+                      </p>
+                      <p className="text-[11px] text-slate-700">
+                        <span className="font-bold text-slate-500 block">{isEn ? "Basal Dose –" : "जमिनीत देण्याची मात्रा –"}</span> {product.doseBasal || "N/A"}
+                      </p>
                     </div>
                   </div>
                 )}
