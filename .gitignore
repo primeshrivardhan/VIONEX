@@ -19,12 +19,18 @@ coverage/
 !.env.example
 serviceAccountKey*.json
 *serviceAccount*.json
+serviceAccount*.json
+*-firebase-adminsdk-*.json
 
 # Android Keystore and Signing Secrets
 *.jks
 *.keystore
 keystore.properties
 *.properties.local
+local.properties
+.gradle/
+android/build/
+android/app/build/
 
 # Logs
 *.log
